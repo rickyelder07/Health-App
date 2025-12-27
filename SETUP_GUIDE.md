@@ -223,6 +223,7 @@ You can test the API with curl:
 
 ```bash
 curl "https://api.nal.usda.gov/fdc/v1/foods/search?api_key=YOUR_API_KEY&query=apple"
+
 ```
 
 ---
