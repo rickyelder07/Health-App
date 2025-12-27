@@ -1,24 +1,36 @@
 //
 //  ContentView.swift
-//  Healthapp
+//  Health App
 //
-//  Created by Ricky Elder on 12/25/25.
+//  Root view that handles navigation between authentication and main app
 //
 
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var appState: AppState
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if appState.isAuthenticated {
+                // Check if user has complete profile
+                if let user = appState.currentUser, user.hasCompleteProfile {
+                    MainTabView()
+                } else {
+                    // Show profile setup for first-time users or incomplete profiles
+                    ProfileSetupView(appState: appState)
+                }
+            } else {
+                AuthenticationView()
+            }
         }
-        .padding()
+        .animation(.easeInOut, value: appState.isAuthenticated)
+        .animation(.easeInOut, value: appState.currentUser?.hasCompleteProfile)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AppState())
 }
+

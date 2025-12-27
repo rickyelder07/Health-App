@@ -6,13 +6,36 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6817EFA12EFE2C650084AE63 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA02EFE2C650084AE63 /* Auth */; };
+		6817EFA32EFE2C650084AE63 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA22EFE2C650084AE63 /* Functions */; };
+		6817EFA52EFE2C650084AE63 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA42EFE2C650084AE63 /* PostgREST */; };
+		6817EFA72EFE2C650084AE63 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA62EFE2C650084AE63 /* Realtime */; };
+		6817EFA92EFE2C650084AE63 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA82EFE2C650084AE63 /* Storage */; };
+		6817EFF72EFE5B980084AE63 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFF62EFE5B980084AE63 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		6817EF912EFE0B9E0084AE63 /* Healthapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Healthapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6817EFF42EFE5A190084AE63 /* Exceptions for "Healthapp" folder in "Healthapp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Resources/Info.plist,
+			);
+			target = 6817EF902EFE0B9E0084AE63 /* Healthapp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6817EF932EFE0B9E0084AE63 /* Healthapp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6817EFF42EFE5A190084AE63 /* Exceptions for "Healthapp" folder in "Healthapp" target */,
+			);
 			path = Healthapp;
 			sourceTree = "<group>";
 		};
@@ -23,6 +46,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6817EFA52EFE2C650084AE63 /* PostgREST in Frameworks */,
+				6817EFA32EFE2C650084AE63 /* Functions in Frameworks */,
+				6817EFF72EFE5B980084AE63 /* Supabase in Frameworks */,
+				6817EFA12EFE2C650084AE63 /* Auth in Frameworks */,
+				6817EFA92EFE2C650084AE63 /* Storage in Frameworks */,
+				6817EFA72EFE2C650084AE63 /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				6817EF932EFE0B9E0084AE63 /* Healthapp */,
+				6817EFF52EFE5B1D0084AE63 /* Frameworks */,
 				6817EF922EFE0B9E0084AE63 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +73,13 @@
 				6817EF912EFE0B9E0084AE63 /* Healthapp.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6817EFF52EFE5B1D0084AE63 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +102,12 @@
 			);
 			name = Healthapp;
 			packageProductDependencies = (
+				6817EFA02EFE2C650084AE63 /* Auth */,
+				6817EFA22EFE2C650084AE63 /* Functions */,
+				6817EFA42EFE2C650084AE63 /* PostgREST */,
+				6817EFA62EFE2C650084AE63 /* Realtime */,
+				6817EFA82EFE2C650084AE63 /* Storage */,
+				6817EFF62EFE5B980084AE63 /* Supabase */,
 			);
 			productName = Healthapp;
 			productReference = 6817EF912EFE0B9E0084AE63 /* Healthapp.app */;
@@ -94,6 +137,9 @@
 			);
 			mainGroup = 6817EF882EFE0B9E0084AE63;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6817EF922EFE0B9E0084AE63 /* Products */;
 			projectDirPath = "";
@@ -256,6 +302,7 @@
 				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Healthapp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +335,7 @@
 				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Healthapp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -332,6 +380,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6817EFA02EFE2C650084AE63 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		6817EFA22EFE2C650084AE63 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		6817EFA42EFE2C650084AE63 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		6817EFA62EFE2C650084AE63 /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		6817EFA82EFE2C650084AE63 /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		6817EFF62EFE5B980084AE63 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6817EF9F2EFE2C650084AE63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6817EF892EFE0B9E0084AE63 /* Project object */;
 }
