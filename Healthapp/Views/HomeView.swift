@@ -2,146 +2,347 @@
 //  HomeView.swift
 //  Health App
 //
-//  Home screen displaying daily calorie summary
+//  Home dashboard displaying today's summary and quick actions
 //
 
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
-    @StateObject private var viewModel: HomeViewModel
     @State private var showingStravaSync = false
-    @State private var stravaSyncMessage: String?
-    
-    init() {
-        // Initialize with temporary UUID - will be updated with actual user ID
-        _viewModel = StateObject(wrappedValue: HomeViewModel(userId: UUID()))
-    }
-    
+    @State private var showingAddFood = false
+    @State private var showingAddPhoto = false
+
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Hello, \(appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized ?? "User")!")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            
-                            Text(Date().formatted(date: .long, time: .omitted))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.top)
-                    
-                    // Calorie summary card
-                    if let summary = viewModel.dailySummary {
-                        CalorieSummaryCard(summary: summary)
-                            .padding(.horizontal)
-                    } else {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 200)
-                    }
-                    
-                    // Macros summary
-                    if let summary = viewModel.dailySummary {
-                        MacrosSummaryView(summary: summary)
-                            .padding(.horizontal)
-                    }
-                    
-                    // Quick actions
-                    QuickActionsView()
-                        .padding(.horizontal)
-                    
-                    // Recent food entries
-                    RecentEntriesSection(entries: viewModel.foodEntries)
-                        .padding(.horizontal)
-                    
-                    Spacer()
+            Group {
+                if let userId = appState.currentUser?.id {
+                    HomeContentView(
+                        userId: userId,
+                        showingAddFood: $showingAddFood,
+                        showingAddPhoto: $showingAddPhoto,
+                        showingStravaSync: $showingStravaSync
+                    )
+                } else {
+                    ProgressView("Loading user...")
                 }
-            }
-            .navigationTitle("Home")
-            .navigationBarTitleDisplayMode(.inline)
-            .refreshable {
-                await viewModel.refresh()
-            }
-            .task {
-                await viewModel.loadTodaySummary()
             }
         }
     }
 }
 
-// MARK: - Calorie Summary Card
+// MARK: - Home Content View
 
-struct CalorieSummaryCard: View {
-    let summary: DailySummary
-    
-    var totalBurned: Int {
-        summary.totalCaloriesBurned ?? summary.calculateTotalCaloriesBurned()
+private struct HomeContentView: View {
+    let userId: UUID
+    @Binding var showingAddFood: Bool
+    @Binding var showingAddPhoto: Bool
+    @Binding var showingStravaSync: Bool
+
+    @StateObject private var viewModel: HomeViewModel
+    @EnvironmentObject var appState: AppState
+
+    init(
+        userId: UUID,
+        showingAddFood: Binding<Bool>,
+        showingAddPhoto: Binding<Bool>,
+        showingStravaSync: Binding<Bool>
+    ) {
+        self.userId = userId
+        self._showingAddFood = showingAddFood
+        self._showingAddPhoto = showingAddPhoto
+        self._showingStravaSync = showingStravaSync
+        _viewModel = StateObject(wrappedValue: HomeViewModel(userId: userId))
     }
-    
-    var netCalories: Int {
-        summary.netCalories ?? summary.calculateNetCalories()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Welcome header
+                WelcomeHeader(
+                    userName: appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized,
+                    weight: viewModel.currentWeight
+                )
+                .padding(.horizontal)
+                .padding(.top)
+
+                // Net calories card
+                if let summary = viewModel.dailySummary {
+                    NetCaloriesDashboardCard(
+                        netCalories: viewModel.netCalories,
+                        isInSurplus: viewModel.isInSurplus,
+                        caloriesConsumed: viewModel.caloriesConsumed,
+                        caloriesBurned: viewModel.caloriesBurned
+                    )
+                    .padding(.horizontal)
+                }
+
+                // Calories progress (circular)
+                if let summary = viewModel.dailySummary {
+                    CaloriesProgressCard(
+                        current: viewModel.caloriesConsumed,
+                        target: viewModel.calorieTarget,
+                        burned: viewModel.caloriesBurned
+                    )
+                    .padding(.horizontal)
+                }
+
+                // Macros progress
+                if let summary = viewModel.dailySummary {
+                    MacrosSection(
+                        proteinCurrent: summary.proteinConsumed,
+                        proteinTarget: viewModel.proteinTarget,
+                        carbsCurrent: summary.carbsConsumed,
+                        carbsTarget: viewModel.carbsTarget,
+                        fatCurrent: summary.fatConsumed,
+                        fatTarget: viewModel.fatTarget
+                    )
+                    .padding(.horizontal)
+                }
+
+                // Activity summary
+                if !viewModel.activities.isEmpty {
+                    ActivitySummarySection(
+                        activities: viewModel.activities,
+                        totalCalories: viewModel.totalExerciseCalories
+                    )
+                    .padding(.horizontal)
+                }
+
+                // Recent progress photo
+                if let photo = viewModel.recentPhoto {
+                    RecentPhotoCard(photo: photo)
+                        .padding(.horizontal)
+                }
+
+                // Quick actions
+                QuickActionsSection(
+                    onLogFood: { showingAddFood = true },
+                    onAddPhoto: { showingAddPhoto = true },
+                    onSyncStrava: { showingStravaSync = true }
+                )
+                .padding(.horizontal)
+
+                // Recent food entries
+                if !viewModel.foodEntries.isEmpty {
+                    RecentFoodSection(entries: viewModel.foodEntries)
+                        .padding(.horizontal)
+                }
+
+                // Empty state
+                if viewModel.dailySummary == nil && !viewModel.isLoading {
+                    EmptyDashboardView()
+                        .padding()
+                }
+
+                // Error message
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding()
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding(.vertical)
+        }
+        .navigationTitle("Dashboard")
+        .navigationBarTitleDisplayMode(.inline)
+        .refreshable {
+            await viewModel.refresh()
+        }
+        .task {
+            await viewModel.loadTodaySummary()
+        }
+        .sheet(isPresented: $showingStravaSync) {
+            StravaConnectionView(userId: userId)
+        }
     }
-    
-    var isInSurplus: Bool {
-        netCalories > 0
+}
+
+// MARK: - Welcome Header
+
+private struct WelcomeHeader: View {
+    let userName: String?
+    let weight: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Hello, \(userName ?? "User")!")
+                .font(.title)
+                .fontWeight(.bold)
+
+            HStack {
+                Text(Date().formatted(date: .long, time: .omitted))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                if let weight = weight {
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "scalemass")
+                            .font(.caption)
+                        Text(String(format: "%.1f kg", weight))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.blue)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+}
+
+// MARK: - Net Calories Dashboard Card
+
+private struct NetCaloriesDashboardCard: View {
+    let netCalories: Int
+    let isInSurplus: Bool
+    let caloriesConsumed: Int
+    let caloriesBurned: Int
+
     var body: some View {
         VStack(spacing: 16) {
-            // Circular progress
-            ZStack {
-                Circle()
-                    .stroke(Color.gray.opacity(0.2), lineWidth: 20)
-                
-                Circle()
-                    .trim(from: 0, to: 0.5) // Placeholder progress
-                    .stroke(
-                        isInSurplus ? Color.orange : Color.green,
-                        style: StrokeStyle(lineWidth: 20, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                
+            // Net calories
+            VStack(spacing: 4) {
+                Text("\(abs(netCalories))")
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundColor(isInSurplus ? .red : .green)
+
+                Text(isInSurplus ? "Calorie Surplus" : "Calorie Deficit")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            // Stats row
+            HStack(spacing: 40) {
                 VStack(spacing: 4) {
-                    Text("\(abs(netCalories))")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                    Text(isInSurplus ? "surplus" : "deficit")
-                        .font(.subheadline)
+                    Text("\(caloriesConsumed)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text("Consumed")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Divider()
+                    .frame(height: 40)
+
+                VStack(spacing: 4) {
+                    Text("\(caloriesBurned)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text("Burned")
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            .frame(width: 200, height: 200)
-            
-            // Stats row
-            HStack(spacing: 30) {
-                StatItem(
-                    icon: "flame.fill",
-                    color: .orange,
-                    value: totalBurned,
-                    label: "Burned"
-                )
-                
-                StatItem(
-                    icon: "fork.knife",
-                    color: .blue,
-                    value: summary.caloriesConsumed,
-                    label: "Food"
-                )
-                
-                StatItem(
-                    icon: "figure.run",
-                    color: .green,
-                    value: summary.caloriesBurnedExercise,
-                    label: "Exercise"
-                )
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [
+                    (isInSurplus ? Color.red : Color.green).opacity(0.1),
+                    (isInSurplus ? Color.red : Color.green).opacity(0.05)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Calories Progress Card
+
+private struct CaloriesProgressCard: View {
+    let current: Int
+    let target: Int
+    let burned: Int
+
+    private var progress: Double {
+        guard target > 0 else { return 0 }
+        return min(Double(current) / Double(target), 1.0)
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Calorie Progress")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 20) {
+                // Circular progress
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 15)
+                        .frame(width: 120, height: 120)
+
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.blue, .purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            style: StrokeStyle(lineWidth: 15, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 120, height: 120)
+                        .animation(.easeInOut(duration: 0.5), value: progress)
+
+                    VStack(spacing: 2) {
+                        Text("\(Int(progress * 100))%")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("\(current)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                // Stats
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "fork.knife")
+                            .foregroundColor(.blue)
+                        Text("Consumed:")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(current) cal")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+
+                    HStack {
+                        Image(systemName: "target")
+                            .foregroundColor(.purple)
+                        Text("Target:")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(target) cal")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+
+                    HStack {
+                        Image(systemName: "flame.fill")
+                            .foregroundColor(.orange)
+                        Text("Burned:")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(burned) cal")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
             }
         }
         .padding()
@@ -151,68 +352,44 @@ struct CalorieSummaryCard: View {
     }
 }
 
-struct StatItem: View {
-    let icon: String
-    let color: Color
-    let value: Int
-    let label: String
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            
-            Text("\(value)")
-                .font(.headline)
-                .fontWeight(.bold)
-            
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-}
+// MARK: - Macros Section
 
-// MARK: - Macros Summary
+private struct MacrosSection: View {
+    let proteinCurrent: Double
+    let proteinTarget: Double
+    let carbsCurrent: Double
+    let carbsTarget: Double
+    let fatCurrent: Double
+    let fatTarget: Double
 
-struct MacrosSummaryView: View {
-    let summary: DailySummary
-    
-    // Rough macro targets (can be customized later)
-    var proteinTarget: Double { Double(summary.caloriesConsumed) * 0.30 / 4 } // 30% of calories, 4 cal/g
-    var carbsTarget: Double { Double(summary.caloriesConsumed) * 0.40 / 4 } // 40% of calories, 4 cal/g
-    var fatTarget: Double { Double(summary.caloriesConsumed) * 0.30 / 9 } // 30% of calories, 9 cal/g
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Macronutrients")
                 .font(.headline)
-                .fontWeight(.semibold)
-            
+
             VStack(spacing: 12) {
-                MacroRow(
+                MacroProgressCard(
                     name: "Protein",
-                    current: summary.proteinConsumed,
-                    target: proteinTarget,
+                    current: proteinCurrent,
+                    target: max(proteinTarget, 1),
                     color: .red,
-                    unit: "g"
+                    icon: "flame.fill"
                 )
-                
-                MacroRow(
+
+                MacroProgressCard(
                     name: "Carbs",
-                    current: summary.carbsConsumed,
-                    target: carbsTarget,
+                    current: carbsCurrent,
+                    target: max(carbsTarget, 1),
                     color: .blue,
-                    unit: "g"
+                    icon: "leaf.fill"
                 )
-                
-                MacroRow(
+
+                MacroProgressCard(
                     name: "Fat",
-                    current: summary.fatConsumed,
-                    target: fatTarget,
-                    color: .orange,
-                    unit: "g"
+                    current: fatCurrent,
+                    target: max(fatTarget, 1),
+                    color: .purple,
+                    icon: "drop.fill"
                 )
             }
         }
@@ -223,197 +400,264 @@ struct MacrosSummaryView: View {
     }
 }
 
-struct MacroRow: View {
-    let name: String
-    let current: Double
-    let target: Double
-    let color: Color
-    let unit: String
-    
-    var progress: Double {
-        guard target > 0 else { return 0 }
-        return min(current / target, 1.0)
-    }
-    
+// MARK: - Activity Summary Section
+
+private struct ActivitySummarySection: View {
+    let activities: [Activity]
+    let totalCalories: Int
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
+                Image(systemName: "figure.run")
+                    .foregroundColor(.orange)
+                Text("Today's Activities")
+                    .font(.headline)
+
                 Spacer()
-                
-                Text("\(Int(current)) / \(Int(target)) \(unit)")
+
+                Text("\(totalCalories) cal")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.orange)
+            }
+
+            ForEach(activities.prefix(3)) { activity in
+                ActivityRowCompact(activity: activity)
+            }
+
+            if activities.count > 3 {
+                Text("+ \(activities.count - 3) more")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+private struct ActivityRowCompact: View {
+    let activity: Activity
+
+    var body: some View {
+        HStack {
+            Image(systemName: "figure.run")
+                .font(.caption)
+                .foregroundColor(.orange)
+
+            Text(activity.name)
+                .font(.subheadline)
+                .lineLimit(1)
+
+            Spacer()
+
+            if let distance = activity.distance {
+                Text(String(format: "%.1f km", distance / 1000))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 8)
-                        .cornerRadius(4)
-                    
-                    Rectangle()
-                        .fill(color)
-                        .frame(width: geometry.size.width * progress, height: 8)
-                        .cornerRadius(4)
-                        .animation(.easeInOut, value: progress)
-                }
-            }
-            .frame(height: 8)
+
+            Text("\(Int(activity.calories)) cal")
+                .font(.caption)
+                .fontWeight(.medium)
         }
+        .padding(.vertical, 4)
     }
 }
 
-// MARK: - Quick Actions
+// MARK: - Recent Photo Card
 
-struct QuickActionsView: View {
-    @EnvironmentObject var appState: AppState
-    
+private struct RecentPhotoCard: View {
+    let photo: ProgressPhoto
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "camera.fill")
+                    .foregroundColor(.blue)
+                Text("Latest Progress Photo")
+                    .font(.headline)
+
+                Spacer()
+
+                Text(photo.takenAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            AsyncImage(url: URL(string: photo.photoUrl)) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                        .frame(height: 150)
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 150)
+                        .clipped()
+                        .cornerRadius(12)
+                case .failure:
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                        .frame(height: 150)
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Quick Actions Section
+
+private struct QuickActionsSection: View {
+    let onLogFood: () -> Void
+    let onAddPhoto: () -> Void
+    let onSyncStrava: () -> Void
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
                 .font(.headline)
-                .fontWeight(.semibold)
-            
+
             HStack(spacing: 12) {
                 QuickActionButton(
                     icon: "plus.circle.fill",
                     title: "Log Food",
-                    color: .blue
-                ) {
-                    // Navigate to add food
-                }
-                
+                    color: .blue,
+                    action: onLogFood
+                )
+
                 QuickActionButton(
                     icon: "camera.fill",
-                    title: "Progress Photo",
-                    color: .purple
-                ) {
-                    // Navigate to add photo
-                }
-                
-                NavigationLink {
-                    if let userId = appState.currentUser?.id {
-                        StravaConnectionView(userId: userId)
-                    } else {
-                        Text("Please sign in to sync Strava")
-                    }
-                } label: {
-                    QuickActionButtonLabel(
-                        icon: "arrow.triangle.2.circlepath",
-                        title: "Sync Strava",
-                        color: .orange
-                    )
-                }
+                    title: "Add Photo",
+                    color: .purple,
+                    action: onAddPhoto
+                )
+
+                QuickActionButton(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: "Sync Strava",
+                    color: .orange,
+                    action: onSyncStrava
+                )
             }
         }
     }
 }
 
-struct QuickActionButton: View {
+private struct QuickActionButton: View {
     let icon: String
     let title: String
     let color: Color
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
-            QuickActionButtonLabel(icon: icon, title: title, color: color)
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(.white)
+
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(
+                LinearGradient(
+                    colors: [color, color.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .cornerRadius(12)
         }
     }
 }
 
-struct QuickActionButtonLabel: View {
-    let icon: String
-    let title: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title)
-                .foregroundColor(.white)
-            
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(color.gradient)
-        .cornerRadius(12)
-    }
-}
+// MARK: - Recent Food Section
 
-// MARK: - Recent Entries
-
-struct RecentEntriesSection: View {
+private struct RecentFoodSection: View {
     let entries: [FoodEntry]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Entries")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("See All") {
-                    // Navigate to all entries
-                }
-                .font(.caption)
-                .foregroundColor(.accentColor)
-            }
-            
-            if entries.isEmpty {
-                Text("No food entries yet")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            } else {
-                ForEach(entries.prefix(5)) { entry in
-                    FoodEntryRow(entry: entry)
-                }
+            Text("Recent Entries")
+                .font(.headline)
+
+            ForEach(entries.prefix(5)) { entry in
+                FoodEntryRowCompact(entry: entry)
             }
         }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 
-struct FoodEntryRow: View {
+private struct FoodEntryRowCompact: View {
     let entry: FoodEntry
-    
+
     var body: some View {
         HStack {
             Image(systemName: entry.mealType?.icon ?? "fork.knife")
+                .font(.caption)
                 .foregroundColor(.accentColor)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.foodName)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                
+                    .lineLimit(1)
+
                 Text(String(format: "%.1f serving", entry.servings))
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
+
             Text("\(Int(entry.totalCalories)) cal")
-                .font(.subheadline)
+                .font(.caption)
                 .fontWeight(.semibold)
         }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Empty Dashboard View
+
+private struct EmptyDashboardView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+
+            Text("Start Your Day")
+                .font(.headline)
+
+            Text("Log your first meal or sync activities to see your dashboard")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
     }
 }
 
@@ -421,4 +665,3 @@ struct FoodEntryRow: View {
     HomeView()
         .environmentObject(AppState())
 }
-

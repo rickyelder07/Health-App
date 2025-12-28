@@ -27,20 +27,22 @@ struct MainTabView: View {
                 }
                 .tag(Tab.calendar)
             
-            // Add Food Tab (Center)
-            AddFoodView()
+            // Food Log Tab (Center)
+            FoodLogListView()
                 .tabItem {
-                    Label("Add", systemImage: "plus.circle.fill")
+                    Label("Food", systemImage: "fork.knife")
                 }
                 .tag(Tab.add)
             
-            // Activities Tab
-            ActivitiesView()
-                .tabItem {
-                    Label("Activities", systemImage: "figure.run")
-                }
-                .tag(Tab.activities)
-            
+            // Analytics Tab
+            if let userId = appState.currentUser?.id {
+                AnalyticsView(userId: userId)
+                    .tabItem {
+                        Label("Analytics", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    .tag(Tab.analytics)
+            }
+
             // Profile Tab
             ProfileView()
                 .tabItem {
@@ -57,7 +59,7 @@ enum Tab {
     case home
     case calendar
     case add
-    case activities
+    case analytics
     case profile
 }
 

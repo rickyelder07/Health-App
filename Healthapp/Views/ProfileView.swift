@@ -129,11 +129,18 @@ struct ProfileView: View {
                 // Progress photos section
                 Section("Progress") {
                     NavigationLink {
-                        Text("Progress Photos")
+                        ProgressPhotoGalleryView()
                     } label: {
                         HStack {
-                            Image(systemName: "photo.on.rectangle")
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .foregroundColor(.purple)
                             Text("Progress Photos")
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }

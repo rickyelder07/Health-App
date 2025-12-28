@@ -8,24 +8,25 @@
 import Foundation
 import Supabase
 import UIKit
-import AuthenticationServices
 
 /// Service for managing Strava OAuth and API interactions
 class StravaService {
     private let supabase = SupabaseClient.shared
+    private let localServer = LocalWebServer()
     
     // MARK: - OAuth Flow
     
-    /// Start OAuth authorization flow using ASWebAuthenticationSession
+    /// Start OAuth authorization flow with local web server
     /// - Parameters:
     ///   - userId: Current user's ID for state parameter
     ///   - completion: Callback with authorization code or error
     func startOAuthFlow(userId: UUID, completion: @escaping (Result<String, Error>) -> Void) {
         let authUrl = buildAuthorizationURL(userId: userId)
         
-        print("🔵 Starting OAuth flow with ASWebAuthenticationSession")
+        print("🔵 Starting OAuth flow with local web server")
         print("   Full URL: \(authUrl)")
         print("   Redirect URI: \(Configuration.Strava.redirectUri)")
+        print("   Local server port: 8080")
         
         guard let url = URL(string: authUrl) else {
             print("❌ Failed to create URL")
@@ -33,43 +34,33 @@ class StravaService {
             return
         }
         
-        // Create authentication session
-        let session = ASWebAuthenticationSession(
-            url: url,
-            callbackURLScheme: "http"  // Matches http://localhost
-        ) { callbackURL, error in
-            if let error = error {
-                print("❌ OAuth session error: \(error)")
-                completion(.failure(error))
-                return
+        // Start local server to receive callback
+        do {
+            try localServer.start()
+            
+            // Set callback handler
+            localServer.onCodeReceived = { [weak self] code in
+                print("✅ Authorization code received from local server: \(code.prefix(10))...")
+                self?.localServer.stop()
+                completion(.success(code))
             }
             
-            guard let callbackURL = callbackURL else {
-                print("❌ No callback URL received")
-                completion(.failure(StravaError.invalidResponse))
-                return
+            // Open authorization URL in Safari after server is ready
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                UIApplication.shared.open(url) { success in
+                    if success {
+                        print("✅ Opened Strava authorization page in Safari")
+                    } else {
+                        print("❌ Failed to open Safari")
+                        self.localServer.stop()
+                        completion(.failure(StravaError.invalidURL))
+                    }
+                }
             }
             
-            print("✅ Callback URL received: \(callbackURL)")
-            
-            // Extract authorization code
-            guard let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
-                  let code = components.queryItems?.first(where: { $0.name == "code" })?.value else {
-                print("❌ Failed to extract authorization code")
-                completion(.failure(StravaError.invalidResponse))
-                return
-            }
-            
-            print("✅ Authorization code extracted")
-            completion(.success(code))
-        }
-        
-        // Present the authentication session
-        session.presentationContextProvider = ASWebAuthenticationSessionContextProvider()
-        session.prefersEphemeralWebBrowserSession = false
-        
-        DispatchQueue.main.async {
-            session.start()
+        } catch {
+            print("❌ Failed to start local server: \(error)")
+            completion(.failure(error))
         }
     }
     
@@ -331,11 +322,17 @@ class StravaService {
         let stravaActivities = try await fetchActivitiesFromStrava(connection: connection)
         
         var syncedCount = 0
+        var affectedDates = Set<Date>()
+        let calendar = Calendar.current
         
         for stravaActivity in stravaActivities {
             do {
                 try await storeActivity(userId: userId, stravaActivity: stravaActivity)
                 syncedCount += 1
+                
+                // Track the date for daily summary update
+                let activityDate = calendar.startOfDay(for: stravaActivity.startDate)
+                affectedDates.insert(activityDate)
             } catch {
                 print("❌ Failed to store activity \(stravaActivity.id): \(error)")
                 // Continue with next activity
@@ -343,6 +340,20 @@ class StravaService {
         }
         
         print("✅ Synced \(syncedCount) activities to database")
+        
+        // Update daily summaries for all affected dates
+        if !affectedDates.isEmpty {
+            print("📊 Updating daily summaries for \(affectedDates.count) date(s)")
+            let summaryService = DailySummaryService()
+            for date in affectedDates {
+                do {
+                    try await summaryService.updateExerciseCalories(userId: userId, date: date)
+                } catch {
+                    print("❌ Failed to update daily summary for \(date): \(error)")
+                }
+            }
+        }
+        
         return syncedCount
     }
     
@@ -382,12 +393,37 @@ class StravaService {
             .eq("user_id", value: userId.uuidString)
             .order("start_date", ascending: false)
             .execute()
-        
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let activities = try decoder.decode([Activity].self, from: response.data)
-        
+
         print("✅ Fetched \(activities.count) activities from database")
+        return activities
+    }
+
+    /// Fetch activities from Supabase for user within date range
+    /// - Parameters:
+    ///   - userId: User's ID
+    ///   - startDate: Start of date range
+    ///   - endDate: End of date range
+    /// - Returns: Array of activities
+    /// - Throws: Error if fetch fails
+    func fetchActivitiesFromDatabase(userId: UUID, startDate: Date, endDate: Date) async throws -> [Activity] {
+        let response = try await supabase.client
+            .from("activities")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .gte("start_date", value: startDate.ISO8601Format())
+            .lte("start_date", value: endDate.ISO8601Format())
+            .order("start_date", ascending: false)
+            .execute()
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let activities = try decoder.decode([Activity].self, from: response.data)
+
+        print("✅ Fetched \(activities.count) activities from database for date range")
         return activities
     }
     
@@ -580,17 +616,5 @@ enum StravaError: LocalizedError {
         case .noConnection:
             return "No Strava connection found. Please connect your Strava account."
         }
-    }
-}
-
-// MARK: - ASWebAuthenticationSession Context Provider
-
-class ASWebAuthenticationSessionContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        // Return the key window
-        return UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? UIWindow()
     }
 }

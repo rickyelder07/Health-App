@@ -96,5 +96,28 @@ extension Date {
         formatter.timeStyle = .short
         return formatter.string(from: self)
     }
+
+    // MARK: - Calendar Helpers
+
+    /// Get the start of the month
+    var startOfMonth: Date {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: self)
+        return calendar.date(from: components)!
+    }
+
+    /// Get the end of the month
+    var endOfMonth: Date {
+        let calendar = Calendar.current
+        guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+            return self
+        }
+        return calendar.date(byAdding: .day, value: -1, to: nextMonth)!
+    }
+
+    /// Check if two dates are in the same day
+    func isSameDay(as other: Date) -> Bool {
+        return Calendar.current.isDate(self, inSameDayAs: other)
+    }
 }
 

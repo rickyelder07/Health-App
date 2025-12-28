@@ -14,23 +14,27 @@ struct ProgressPhoto: Codable, Identifiable {
     
     // Photo information
     var photoUrl: String // Supabase Storage URL
+    var thumbnailUrl: String? // Thumbnail URL
     
     // Optional metadata
-    var weight: Double? // Weight at time of photo (kg)
+    var weight: Double? // Weight at time of photo (lbs)
     var notes: String?
     
     // Timestamps
-    let dateTaken: Date
+    let takenAt: Date // Date photo was taken
     let createdAt: Date
+    var updatedAt: Date
     
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
         case photoUrl = "photo_url"
+        case thumbnailUrl = "thumbnail_url"
         case weight
         case notes
-        case dateTaken = "date_taken"
+        case takenAt = "taken_at"
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
     
     /// Format date for display
@@ -38,7 +42,7 @@ struct ProgressPhoto: Codable, Identifiable {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
-        return formatter.string(from: dateTaken)
+        return formatter.string(from: takenAt)
     }
 }
 

@@ -28,8 +28,8 @@ enum Configuration {
         static let clientSecret = "eca68364f240ecb75a29480656259ebdfbf13393"
         
         /// Strava OAuth redirect URI
-        /// For mobile apps, Strava requires using localhost
-        static let redirectUri = "http://localhost/exchange_token"
+        /// Using localhost with port 8080 where local server listens
+        static let redirectUri = "http://127.0.0.1:8080"
         
         /// Strava authorization URL
         static let authorizationUrl = "https://www.strava.com/oauth/authorize"

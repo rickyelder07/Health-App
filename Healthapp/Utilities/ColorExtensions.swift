@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 extension Color {
     /// App color palette
