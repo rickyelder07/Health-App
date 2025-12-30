@@ -102,7 +102,7 @@ private struct SettingsContentView: View {
                             .foregroundColor(.primary)
                     }
 
-                    Link(destination: URL(string: "https://rickhelder07.github.io/NetFuel/privacy-policy.html")!) {
+                    Link(destination: URL(string: "https://rickyelder07.github.io/NetFuel/privacy-policy.html")!) {
                         HStack {
                             Text("Privacy Policy")
                             Spacer()
