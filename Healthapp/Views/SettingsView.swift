@@ -112,7 +112,7 @@ private struct SettingsContentView: View {
                         }
                     }
 
-                    Link(destination: URL(string: "https://example.com/terms")!) {
+                    Link(destination: URL(string: "https://rickyelder07.github.io/NetFuel/terms-of-service.html")!) {
                         HStack {
                             Text("Terms of Service")
                             Spacer()
