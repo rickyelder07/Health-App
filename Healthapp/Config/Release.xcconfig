@@ -1,0 +1,16 @@
+//
+//  Release.xcconfig
+//  Health App
+//
+//  Release build configuration
+//
+
+// Include secrets
+#include "Secrets.xcconfig"
+
+// Release-specific settings
+DEBUG_MODE = NO
+APP_ENVIRONMENT = Production
+
+// Production API keys would be loaded from Secrets.xcconfig
+// You can override specific values for production builds if needed
