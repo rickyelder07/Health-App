@@ -1,6 +1,6 @@
 //
 //  CustomFood.swift
-//  Health App
+//  Netfuel
 //
 //  Model for user-created custom foods
 //

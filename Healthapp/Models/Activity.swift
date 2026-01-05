@@ -1,6 +1,6 @@
 //
 //  Activity.swift
-//  Health App
+//  Netfuel
 //
 //  Model for exercise activities from Strava
 //

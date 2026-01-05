@@ -1,6 +1,6 @@
 //
 //  MacroProgressView.swift
-//  Health App
+//  Netfuel
 //
 //  Reusable component for displaying macro progress bars
 //

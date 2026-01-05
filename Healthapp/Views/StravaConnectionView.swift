@@ -1,6 +1,6 @@
 //
 //  StravaConnectionView.swift
-//  Health App
+//  Netfuel
 //
 //  View for managing Strava connection and syncing activities
 //
@@ -8,61 +8,80 @@
 import SwiftUI
 
 struct StravaConnectionView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: StravaViewModel
     @State private var showingDisconnectAlert = false
-    
+
     init(userId: UUID) {
         _viewModel = StateObject(wrappedValue: StravaViewModel(userId: userId))
     }
-    
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Header
-                headerSection
-                
-                // Connection Status
-                connectionStatusSection
-                
-                // Error/Success Messages
-                if let errorMessage = viewModel.errorMessage {
-                    messageView(message: errorMessage, type: .error)
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    headerSection
+
+                    // Connection Status
+                    connectionStatusSection
+
+                    // Error/Success Messages
+                    if let errorMessage = viewModel.errorMessage {
+                        messageView(message: errorMessage, type: .error)
+                    }
+
+                    if let successMessage = viewModel.successMessage {
+                        messageView(message: successMessage, type: .success)
+                    }
+
+                    // Connect/Disconnect Button
+                    actionButtonSection
+
+                    // Activities Summary (if connected)
+                    if viewModel.isConnected {
+                        activitiesSummarySection
+                    }
+
+                    // About Strava Integration
+                    aboutSection
                 }
-                
-                if let successMessage = viewModel.successMessage {
-                    messageView(message: successMessage, type: .success)
+                .padding()
+            }
+            .navigationTitle("Strava")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
-                
-                // Connect/Disconnect Button
-                actionButtonSection
-                
-                // Activities Summary (if connected)
+            }
+            .refreshable {
                 if viewModel.isConnected {
-                    activitiesSummarySection
-                }
-                
-                // About Strava Integration
-                aboutSection
-            }
-            .padding()
-        }
-        .navigationTitle("Strava")
-        .navigationBarTitleDisplayMode(.large)
-        .refreshable {
-            if viewModel.isConnected {
-                await viewModel.refreshActivities()
-            }
-        }
-        .alert("Disconnect Strava?", isPresented: $showingDisconnectAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Disconnect", role: .destructive) {
-                Task {
-                    await viewModel.disconnect()
+                    await viewModel.refreshActivities()
                 }
             }
-        } message: {
-            Text("Your activities will remain saved, but no new activities will be synced.")
+            .onReceive(NotificationCenter.default.publisher(for: .stravaOAuthCallback)) { notification in
+                // Handle Strava OAuth callback
+                if let code = notification.userInfo?["code"] as? String {
+                    print("✅ StravaConnectionView received OAuth callback with code")
+                    Task {
+                        await viewModel.handleOAuthCallback(code: code)
+                    }
+                }
+            }
+            .alert("Disconnect Strava?", isPresented: $showingDisconnectAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Disconnect", role: .destructive) {
+                    Task {
+                        await viewModel.disconnect()
+                    }
+                }
+            } message: {
+                Text("Your activities will remain saved, but no new activities will be synced.")
+            }
         }
     }
     

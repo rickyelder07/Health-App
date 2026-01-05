@@ -1,6 +1,6 @@
 //
 //  ProfileView.swift
-//  Health App
+//  Netfuel
 //
 //  View for user profile and settings
 //
@@ -9,8 +9,15 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showingSignOutAlert = false
-    
+
+    private var userName: String {
+        // Use name if available, otherwise derive from email
+        if let name = appState.currentUser?.name, !name.isEmpty {
+            return name
+        }
+        return appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized ?? "User"
+    }
+
     var body: some View {
         NavigationView {
             List {
@@ -20,12 +27,13 @@ struct ProfileView: View {
                         Image(systemName: "person.circle.fill")
                             .font(.system(size: 60))
                             .foregroundStyle(.red.gradient)
-                        
+                            .accessibilityHidden(true)
+
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized ?? "User")
+                            Text(userName)
                                 .font(.title3)
                                 .fontWeight(.semibold)
-                            
+
                             Text(appState.currentUser?.email ?? "")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -33,6 +41,7 @@ struct ProfileView: View {
                         .padding(.leading, 8)
                     }
                     .padding(.vertical, 8)
+                    .accessible(label: "User profile: \(userName), \(appState.currentUser?.email ?? "")", traits: .isStaticText)
                 }
                 
                 // Physical stats section
@@ -45,15 +54,17 @@ struct ProfileView: View {
                             Text("Edit Profile")
                         }
                     }
+                    .accessibilityLabel("Edit profile")
+                    .accessibilityHint("Opens profile editor to update physical stats")
                     
                     if let weight = appState.currentUser?.weight {
-                        LabeledContent("Weight", value: "\(String(format: "%.1f", weight)) kg")
+                        LabeledContent("Weight", value: UnitFormatter.formatWeight(weight))
                     } else {
                         LabeledContent("Weight", value: "Not set")
                     }
-                    
+
                     if let height = appState.currentUser?.height {
-                        LabeledContent("Height", value: "\(String(format: "%.0f", height)) cm")
+                        LabeledContent("Height", value: UnitFormatter.formatHeight(height))
                     } else {
                         LabeledContent("Height", value: "Not set")
                     }
@@ -114,18 +125,21 @@ struct ProfileView: View {
                                 Image(systemName: "figure.run")
                                     .foregroundColor(.orange)
                                 Text("Strava")
-                                
+
                                 Spacer()
-                                
+
                                 // Connection status indicator will be shown in the view itself
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .accessibilityHidden(true)
                             }
                         }
+                        .accessibilityLabel("Strava integration")
+                        .accessibilityHint("Connect or manage Strava account for activity syncing")
                     }
                 }
-                
+
                 // Progress photos section
                 Section("Progress") {
                     NavigationLink {
@@ -135,62 +149,87 @@ struct ProfileView: View {
                             Image(systemName: "photo.on.rectangle.angled")
                                 .foregroundColor(.purple)
                             Text("Progress Photos")
-                            
+
                             Spacer()
-                            
+
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                                .accessibilityHidden(true)
                         }
                     }
+                    .accessibilityLabel("Progress photos")
+                    .accessibilityHint("View and manage progress photos")
                 }
-                
+
+                // Goals section
+                Section("Goals") {
+                    if let userId = appState.currentUser?.id {
+                        NavigationLink {
+                            GoalsSettingsView(viewModel: SettingsViewModel(userId: userId))
+                        } label: {
+                            HStack {
+                                Image(systemName: "target")
+                                    .foregroundColor(.red)
+                                Text("Goals & Targets")
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .accessibilityLabel("Goals and targets")
+                        .accessibilityHint("Set daily calorie and macro targets")
+
+                        NavigationLink {
+                            QuickAddSettingsView()
+                        } label: {
+                            HStack {
+                                Image(systemName: "bolt.circle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Quick-Add Buttons")
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .accessibilityLabel("Quick-add buttons")
+                        .accessibilityHint("Configure quick-add buttons for frequently logged foods")
+                    }
+                }
+
                 // Settings section
                 Section("Settings") {
-                    NavigationLink {
-                        Text("App Settings")
-                    } label: {
-                        HStack {
-                            Image(systemName: "gear")
-                            Text("App Settings")
+                    if let userId = appState.currentUser?.id {
+                        NavigationLink {
+                            SettingsView(userId: userId)
+                        } label: {
+                            HStack {
+                                Image(systemName: "gear")
+                                    .foregroundColor(.gray)
+                                Text("Settings & Preferences")
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .accessibilityHidden(true)
+                            }
                         }
-                    }
-                    
-                    NavigationLink {
-                        Text("About")
-                    } label: {
-                        HStack {
-                            Image(systemName: "info.circle")
-                            Text("About")
-                        }
-                    }
-                }
-                
-                // Sign out section
-                Section {
-                    Button(role: .destructive) {
-                        showingSignOutAlert = true
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text("Sign Out")
-                                .fontWeight(.semibold)
-                            Spacer()
-                        }
+                        .accessibilityLabel("Settings and preferences")
+                        .accessibilityHint("Configure app settings")
                     }
                 }
             }
             .navigationTitle("Profile")
-            .alert("Sign Out", isPresented: $showingSignOutAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Sign Out", role: .destructive) {
-                    Task {
-                        await appState.signOut()
-                    }
-                }
-            } message: {
-                Text("Are you sure you want to sign out?")
-            }
         }
     }
 }

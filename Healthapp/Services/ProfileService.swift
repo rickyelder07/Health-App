@@ -1,6 +1,6 @@
 //
 //  ProfileService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for managing user profile data in Supabase
 //
@@ -16,6 +16,7 @@ class ProfileService {
     
     /// Request struct for creating/updating a profile
     private struct UpdateProfileRequest: Encodable {
+        let name: String?
         let weight: Double?
         let height: Double?
         let age: Int?
@@ -24,8 +25,9 @@ class ProfileService {
         let bmr: Double
         let tdee: Double
         let updatedAt: String
-        
+
         enum CodingKeys: String, CodingKey {
+            case name
             case weight
             case height
             case age
@@ -92,6 +94,7 @@ class ProfileService {
             let tdee = calculateTDEE(bmr: bmr, activityLevel: activityLevel)
             
             let profileData = UpdateProfileRequest(
+                name: nil,
                 weight: weight,
                 height: height,
                 age: age,
@@ -144,6 +147,7 @@ class ProfileService {
     /// - Throws: Error if update fails
     func updateProfile(
         userId: UUID,
+        name: String? = nil,
         weight: Double? = nil,
         height: Double? = nil,
         age: Int? = nil,
@@ -153,19 +157,20 @@ class ProfileService {
         do {
             // Fetch current profile to get existing values
             let currentProfile = try await fetchProfile(userId: userId)
-            
+
             // Use provided values or fall back to current values
             let finalWeight = weight ?? currentProfile.weight ?? 0
             let finalHeight = height ?? currentProfile.height ?? 0
             let finalAge = age ?? currentProfile.age ?? 0
             let finalGender = gender ?? currentProfile.gender ?? .other
             let finalActivityLevel = activityLevel ?? currentProfile.activityLevel ?? .sedentary
-            
+
             // Calculate BMR and TDEE with new values
             let bmr = calculateBMR(weight: finalWeight, height: finalHeight, age: finalAge, gender: finalGender)
             let tdee = calculateTDEE(bmr: bmr, activityLevel: finalActivityLevel)
-            
+
             let updateData = UpdateProfileRequest(
+                name: name,
                 weight: weight,
                 height: height,
                 age: age,
@@ -240,6 +245,28 @@ class ProfileService {
     /// - Returns: TDEE in calories per day
     func calculateTDEE(bmr: Double, activityLevel: ActivityLevel) -> Double {
         return bmr * activityLevel.multiplier
+    }
+
+    /// Delete user account and all associated data
+    /// - Parameter userId: User's UUID
+    /// - Throws: Error if deletion fails
+    func deleteUserAccount(userId: UUID) async throws {
+        // Note: In Supabase, you should set up CASCADE delete on foreign keys
+        // or delete related records manually. For now, we'll just delete the user record.
+        // The database should handle cascading deletes via foreign key constraints.
+
+        do {
+            try await supabase.client
+                .from("users")
+                .delete()
+                .eq("id", value: userId.uuidString)
+                .execute()
+
+            print("✅ User account deleted successfully")
+        } catch {
+            print("❌ Failed to delete user account: \(error)")
+            throw ProfileError.updateFailed(error.localizedDescription)
+        }
     }
 }
 

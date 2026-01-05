@@ -1,6 +1,6 @@
 //
 //  WeightTrendView.swift
-//  Health App
+//  Netfuel
 //
 //  Weight trend view with line chart and statistics
 //
@@ -55,28 +55,28 @@ private struct WeightStatsGrid: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             StatCard(
                 title: "Starting Weight",
-                value: viewModel.startingWeight != nil ? String(format: "%.1f kg", viewModel.startingWeight!) : "--",
+                value: viewModel.startingWeight != nil ? UnitFormatter.formatWeight(viewModel.startingWeight!) : "--",
                 icon: "arrow.left.circle.fill",
                 color: .blue
             )
 
             StatCard(
                 title: "Current Weight",
-                value: viewModel.currentWeight != nil ? String(format: "%.1f kg", viewModel.currentWeight!) : "--",
+                value: viewModel.currentWeight != nil ? UnitFormatter.formatWeight(viewModel.currentWeight!) : "--",
                 icon: "scalemass.fill",
                 color: .green
             )
 
             StatCard(
                 title: "Total Change",
-                value: viewModel.weightChange != nil ? String(format: "%+.1f kg", viewModel.weightChange!) : "--",
+                value: viewModel.weightChange != nil ? UnitFormatter.formatWeightChange(viewModel.weightChange!) : "--",
                 icon: viewModel.weightChange ?? 0 < 0 ? "arrow.down.circle.fill" : "arrow.up.circle.fill",
                 color: viewModel.weightChange ?? 0 < 0 ? .green : .red
             )
 
             StatCard(
                 title: "Weekly Avg",
-                value: viewModel.averageWeeklyChange != nil ? String(format: "%+.2f kg/week", viewModel.averageWeeklyChange!) : "--",
+                value: viewModel.averageWeeklyChange != nil ? UnitFormatter.formatWeightChange(viewModel.averageWeeklyChange!, decimals: 2) + "/week" : "--",
                 icon: "calendar",
                 color: .orange
             )
@@ -142,7 +142,7 @@ private struct WeightChart: View {
                     AxisGridLine()
                     AxisValueLabel {
                         if let weight = value.as(Double.self) {
-                            Text("\(String(format: "%.1f", weight)) kg")
+                            Text(UnitFormatter.formatWeight(weight))
                                 .font(.caption)
                         }
                     }

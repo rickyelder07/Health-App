@@ -1,6 +1,6 @@
 //
 //  DailySummary.swift
-//  Health App
+//  Netfuel
 //
 //  Model for daily calorie and macro summary
 //
@@ -18,13 +18,16 @@ struct DailySummary: Codable, Identifiable {
     
     // Optional weight tracking
     var weight: Double? // in kg
-    
+
+    // Calorie goal (historical tracking - what the goal was on this day)
+    var calorieGoal: Int?
+
     // Calories consumed from food
     var caloriesConsumed: Int
     var proteinConsumed: Double
     var carbsConsumed: Double
     var fatConsumed: Double
-    
+
     // Calories burned
     var caloriesBurnedBmr: Int // From BMR
     var caloriesBurnedExercise: Int // From activities
@@ -41,6 +44,7 @@ struct DailySummary: Codable, Identifiable {
         case userId = "user_id"
         case date
         case weight
+        case calorieGoal = "calorie_goal"
         case caloriesConsumed = "calories_consumed"
         case proteinConsumed = "protein_consumed"
         case carbsConsumed = "carbs_consumed"
@@ -70,11 +74,24 @@ struct DailySummary: Codable, Identifiable {
         let net = netCalories ?? calculateNetCalories()
         return net > 0
     }
-    
+
     /// Check if user is in calorie deficit
     var isInDeficit: Bool {
         let net = netCalories ?? calculateNetCalories()
         return net < 0
+    }
+
+    /// Calculate how far over/under the goal (if goal is set)
+    func caloriesVsGoal() -> Int? {
+        guard let goal = calorieGoal else { return nil }
+        return caloriesConsumed - goal
+    }
+
+    /// Check if user met their calorie goal (within 50 calories)
+    func metCalorieGoal() -> Bool? {
+        guard let goal = calorieGoal else { return nil }
+        let difference = abs(caloriesConsumed - goal)
+        return difference <= 50
     }
     
     /// Format date for display

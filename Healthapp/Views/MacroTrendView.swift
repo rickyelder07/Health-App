@@ -1,6 +1,6 @@
 //
 //  MacroTrendView.swift
-//  Health App
+//  Netfuel
 //
 //  Macro trend view with line/stacked charts and statistics
 //

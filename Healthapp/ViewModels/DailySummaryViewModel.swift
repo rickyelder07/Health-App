@@ -1,6 +1,6 @@
 //
 //  DailySummaryViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for managing daily summary state and calculations
 //

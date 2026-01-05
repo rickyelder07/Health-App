@@ -1,6 +1,6 @@
 //
 //  CreateCustomMealView.swift
-//  Health App
+//  Netfuel
 //
 //  View for creating/editing custom meals
 //

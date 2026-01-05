@@ -1,6 +1,6 @@
 //
 //  HomeViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for home dashboard
 //
@@ -109,19 +109,36 @@ class HomeViewModel: ObservableObject {
         activities.reduce(0) { $0 + Int($1.calories) }
     }
 
-    /// Calories consumed today
+    /// Calories consumed today - calculated directly from food logs for real-time accuracy
     var caloriesConsumed: Int {
-        dailySummary?.caloriesConsumed ?? 0
+        foodEntries.reduce(0) { $0 + Int($1.totalCalories) }
     }
 
-    /// Total calories burned (BMR + exercise)
+    /// Total protein consumed today
+    var proteinConsumed: Double {
+        foodEntries.reduce(0.0) { $0 + $1.totalProtein }
+    }
+
+    /// Total carbs consumed today
+    var carbsConsumed: Double {
+        foodEntries.reduce(0.0) { $0 + $1.totalCarbs }
+    }
+
+    /// Total fat consumed today
+    var fatConsumed: Double {
+        foodEntries.reduce(0.0) { $0 + $1.totalFat }
+    }
+
+    /// Total calories burned (BMR + exercise) - uses dailySummary for BMR, calculates exercise from activities
     var caloriesBurned: Int {
-        dailySummary?.totalCaloriesBurned ?? dailySummary?.calculateTotalCaloriesBurned() ?? 0
+        let bmr = dailySummary?.caloriesBurnedBmr ?? 0
+        let exercise = totalExerciseCalories
+        return bmr + exercise
     }
 
     /// Net calories (consumed - burned)
     var netCalories: Int {
-        dailySummary?.netCalories ?? dailySummary?.calculateNetCalories() ?? 0
+        caloriesConsumed - caloriesBurned
     }
 
     /// Is user in calorie surplus?
@@ -129,23 +146,43 @@ class HomeViewModel: ObservableObject {
         netCalories > 0
     }
 
-    /// Calorie target (TDEE)
+    /// Calorie target - uses historical goal from summary if available
     var calorieTarget: Int {
-        // In a real app, this would come from user profile
-        // For now, use BMR as a rough estimate
-        dailySummary?.caloriesBurnedBmr ?? 2000
+        // IMPORTANT: Use historical goal from summary for accurate comparisons
+        // Even if user changes their goal later, we show what the goal was on this day
+        if let historicalGoal = dailySummary?.calorieGoal {
+            return historicalGoal
+        }
+
+        // Fallback: Calculate current goal (for new summaries that don't have goal saved yet)
+        let settings = UserSettings.load()
+        switch settings.calorieGoalSource {
+        case .bmr:
+            // Would need user's BMR - fall through to TDEE for now
+            fallthrough
+        case .tdee:
+            return dailySummary?.totalCaloriesBurned ?? dailySummary?.calculateTotalCaloriesBurned() ?? 2000
+        case .custom:
+            return settings.dailyCalorieTarget ?? 2000
+        }
     }
 
-    /// Macro targets (rough estimates based on consumed calories)
+    /// Macro targets from user settings
     var proteinTarget: Double {
-        Double(caloriesConsumed) * 0.30 / 4 // 30% of calories, 4 cal/g
+        let settings = UserSettings.load()
+        // Use user's custom target if set, otherwise use 30% of calorie target
+        return settings.proteinTargetGrams ?? (Double(calorieTarget) * 0.30 / 4)
     }
 
     var carbsTarget: Double {
-        Double(caloriesConsumed) * 0.40 / 4 // 40% of calories, 4 cal/g
+        let settings = UserSettings.load()
+        // Use user's custom target if set, otherwise use 40% of calorie target
+        return settings.carbsTargetGrams ?? (Double(calorieTarget) * 0.40 / 4)
     }
 
     var fatTarget: Double {
-        Double(caloriesConsumed) * 0.30 / 9 // 30% of calories, 9 cal/g
+        let settings = UserSettings.load()
+        // Use user's custom target if set, otherwise use 30% of calorie target
+        return settings.fatTargetGrams ?? (Double(calorieTarget) * 0.30 / 9)
     }
 }

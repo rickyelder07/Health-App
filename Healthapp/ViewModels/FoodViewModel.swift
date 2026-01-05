@@ -1,6 +1,6 @@
 //
 //  FoodViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for food logging with custom foods and meals
 //
@@ -25,7 +25,8 @@ class FoodViewModel: ObservableObject {
     // Food Logs
     @Published var todayFoodLogs: [FoodLog] = []
     @Published var recentFoods: [FoodLog] = []
-    
+    @Published var selectedDate: Date = Date()
+
     // UI State
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
@@ -54,29 +55,29 @@ class FoodViewModel: ObservableObject {
     /// Load all initial data
     func loadInitialData() async {
         guard let userId = userId else { return }
-        
+
         isLoading = true
         errorMessage = nil
-        
+
         do {
             async let customFoodsTask = foodService.fetchCustomFoods(userId: userId)
             async let customMealsTask = foodService.fetchCustomMeals(userId: userId)
-            async let todayLogsTask = foodService.fetchFoodLogs(userId: userId, date: Date())
+            async let todayLogsTask = foodService.fetchFoodLogs(userId: userId, date: selectedDate)
             async let recentTask = foodService.fetchRecentFoods(userId: userId, limit: 10)
-            
+
             customFoods = try await customFoodsTask
             customMeals = try await customMealsTask
             todayFoodLogs = try await todayLogsTask
             recentFoods = try await recentTask
-            
+
             // Filter favorites
             favoriteCustomFoods = customFoods.filter { $0.isFavorite }
             favoriteCustomMeals = customMeals.filter { $0.isFavorite }
-            
+
         } catch {
             errorMessage = "Failed to load data: \(error.localizedDescription)"
         }
-        
+
         isLoading = false
     }
     
@@ -104,12 +105,12 @@ class FoodViewModel: ObservableObject {
         }
     }
     
-    /// Refresh today's food logs
+    /// Refresh food logs for selected date
     func refreshTodayLogs() async {
         guard let userId = userId else { return }
-        
+
         do {
-            todayFoodLogs = try await foodService.fetchFoodLogs(userId: userId, date: Date())
+            todayFoodLogs = try await foodService.fetchFoodLogs(userId: userId, date: selectedDate)
         } catch {
             errorMessage = "Failed to refresh food logs: \(error.localizedDescription)"
         }
@@ -380,15 +381,16 @@ class FoodViewModel: ObservableObject {
         sodium: Double?,
         servings: Double,
         mealType: MealType?,
+        logDate: Date = Date(),
         usdaFdcId: String? = nil,
         customFoodId: UUID? = nil,
         customMealId: UUID? = nil
     ) async -> Bool {
         guard let userId = userId else { return false }
-        
+
         isLoading = true
         errorMessage = nil
-        
+
         let request = FoodLogRequest(
             userId: userId,
             foodName: foodName,
@@ -407,7 +409,7 @@ class FoodViewModel: ObservableObject {
             usdaFdcId: usdaFdcId,
             customFoodId: customFoodId,
             customMealId: customMealId,
-            loggedAt: Date()
+            loggedAt: logDate
         )
         
         do {

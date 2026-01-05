@@ -1,6 +1,6 @@
 //
 //  LocalWebServer.swift
-//  Health App
+//  Netfuel
 //
 //  Lightweight HTTP server for OAuth callbacks
 //

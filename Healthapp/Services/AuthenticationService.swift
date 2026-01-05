@@ -1,6 +1,6 @@
 //
 //  AuthenticationService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for handling user authentication with Supabase
 //
@@ -63,7 +63,7 @@ class AuthenticationService {
             // The URL scheme must match what's configured in Info.plist
             let session = try await supabase.auth.signInWithOAuth(
                 provider: .google,
-                redirectTo: URL(string: "healthapp://oauth-callback")
+                redirectTo: URL(string: "netfuel://oauth-callback")
             )
             
             print("✅ Google sign in successful - User ID: \(session.user.id)")

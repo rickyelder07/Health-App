@@ -1,6 +1,6 @@
 //
 //  CalendarDayCell.swift
-//  Health App
+//  Netfuel
 //
 //  Reusable calendar day cell component
 //

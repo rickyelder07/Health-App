@@ -1,0 +1,16 @@
+//
+//  Debug.xcconfig
+//  Health App
+//
+//  Debug build configuration
+//
+
+// Include secrets
+#include "Secrets.xcconfig"
+
+// Debug-specific settings
+DEBUG_MODE = YES
+APP_ENVIRONMENT = Development
+
+// You can override specific values for debug builds if needed
+// For example, use a different Supabase project for development

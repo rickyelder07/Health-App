@@ -1,6 +1,6 @@
 //
 //  ProgressPhotoViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for managing progress photo state and operations
 //
@@ -109,15 +109,15 @@ class ProgressPhotoViewModel: ObservableObject {
             errorMessage = "User not authenticated"
             return false
         }
-        
+
         isUploading = true
         uploadProgress = 0.0
         errorMessage = nil
-        
+
         do {
             // Simulate progress (real progress tracking would need more complex implementation)
             uploadProgress = 0.3
-            
+
             let photo = try await photoService.uploadPhoto(
                 image: image,
                 userId: userId,
@@ -125,17 +125,35 @@ class ProgressPhotoViewModel: ObservableObject {
                 notes: notes,
                 takenAt: takenAt
             )
-            
+
+            uploadProgress = 0.7
+
+            // If weight was provided, sync it to users table and daily_summaries
+            if let weightLbs = weight {
+                // Convert lbs to kg for users/daily_summaries tables
+                let weightKg = weightLbs * 0.453592
+
+                // Update user's current weight
+                _ = try await ProfileService.shared.updateWeight(userId: userId, weight: weightKg)
+
+                // Update daily summary for the photo date
+                try await DailySummaryService.shared.updateDailyWeight(
+                    userId: userId,
+                    date: takenAt,
+                    weight: weightKg
+                )
+            }
+
             uploadProgress = 1.0
-            
+
             // Add to local array
             photos.insert(photo, at: 0)
-            
+
             successMessage = "Photo uploaded successfully!"
             isUploading = false
-            
+
             return true
-            
+
         } catch {
             errorMessage = "Upload failed: \(error.localizedDescription)"
             isUploading = false
@@ -152,25 +170,46 @@ class ProgressPhotoViewModel: ObservableObject {
         weight: Double?,
         notes: String?
     ) async -> Bool {
+        guard let userId = userId else {
+            errorMessage = "User not authenticated"
+            return false
+        }
+
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let updatedPhoto = try await photoService.updatePhoto(
                 photoId: photoId,
                 weight: weight,
                 notes: notes
             )
-            
+
+            // If weight was updated, sync it to users table and daily_summaries
+            if let weightLbs = weight {
+                // Convert lbs to kg for users/daily_summaries tables
+                let weightKg = weightLbs * 0.453592
+
+                // Update user's current weight
+                _ = try await ProfileService.shared.updateWeight(userId: userId, weight: weightKg)
+
+                // Update daily summary for the photo date
+                try await DailySummaryService.shared.updateDailyWeight(
+                    userId: userId,
+                    date: updatedPhoto.takenAt,
+                    weight: weightKg
+                )
+            }
+
             // Update in local array
             if let index = photos.firstIndex(where: { $0.id == photoId }) {
                 photos[index] = updatedPhoto
             }
-            
+
             successMessage = "Photo updated"
             isLoading = false
             return true
-            
+
         } catch {
             errorMessage = "Update failed: \(error.localizedDescription)"
             isLoading = false

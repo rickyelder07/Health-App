@@ -1,6 +1,6 @@
 //
 //  USDAModels.swift
-//  Health App
+//  Netfuel
 //
 //  Models for USDA FoodData Central API responses
 //

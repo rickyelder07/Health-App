@@ -1,6 +1,6 @@
 //
 //  ForgotPasswordView.swift
-//  Health App
+//  Netfuel
 //
 //  View for password reset functionality
 //

@@ -1,6 +1,6 @@
 //
 //  ProgressPhotoGalleryView.swift
-//  Health App
+//  Netfuel
 //
 //  Grid view for progress photo gallery
 //
@@ -156,30 +156,22 @@ struct PhotoGridItem: View {
             onTap()
         } label: {
             ZStack(alignment: .topTrailing) {
-                // Photo thumbnail
-                AsyncImage(url: URL(string: photo.thumbnailUrl ?? photo.photoUrl)) { phase in
-                    switch phase {
-                    case .empty:
+                // Photo thumbnail with caching
+                CachedAsyncImage(
+                    url: photo.thumbnailUrl ?? photo.photoUrl,
+                    content: { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    },
+                    placeholder: {
                         Rectangle()
                             .fill(Color(.systemGray5))
                             .overlay(
                                 ProgressView()
                             )
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        Rectangle()
-                            .fill(Color(.systemGray5))
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .foregroundColor(.secondary)
-                            )
-                    @unknown default:
-                        EmptyView()
                     }
-                }
+                )
                 .frame(height: 120)
                 .clipped()
                 .cornerRadius(8)

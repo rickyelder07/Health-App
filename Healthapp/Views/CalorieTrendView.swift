@@ -1,6 +1,6 @@
 //
 //  CalorieTrendView.swift
-//  Health App
+//  Netfuel
 //
 //  Calorie trend view with bar chart and statistics
 //

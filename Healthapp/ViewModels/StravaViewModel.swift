@@ -1,6 +1,6 @@
 //
 //  StravaViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for managing Strava connection and activity syncing
 //
@@ -67,30 +67,20 @@ class StravaViewModel: ObservableObject {
     }
     
     /// Start OAuth authorization flow
+    /// Opens Safari for user to authorize. After approval, Strava redirects to netfuel://localhost
+    /// The app's .onOpenURL handler should call handleOAuthCallback(code:) when the callback is received
     func connectStrava() {
         print("🔵 Starting Strava OAuth flow")
         isLoading = true
         errorMessage = nil
-        
-        stravaService.startOAuthFlow(userId: userId) { [weak self] result in
-            Task { @MainActor in
-                guard let self = self else { return }
-                
-                switch result {
-                case .success(let code):
-                    print("✅ OAuth completed, exchanging code for token")
-                    await self.handleOAuthCallback(code: code)
-                    
-                case .failure(let error):
-                    print("❌ OAuth failed: \(error)")
-                    self.errorMessage = "Failed to connect: \(error.localizedDescription)"
-                    self.isLoading = false
-                }
-            }
-        }
+
+        stravaService.startOAuthFlow(userId: userId)
+        // User will authorize in Safari, then iOS will bring them back to the app
+        // The .onOpenURL handler will catch the callback and call handleOAuthCallback
     }
-    
+
     /// Handle OAuth callback with authorization code
+    /// This should be called from .onOpenURL when the app receives netfuel://localhost?code=...
     /// - Parameter code: Authorization code from Strava
     func handleOAuthCallback(code: String) async {
         isLoading = true

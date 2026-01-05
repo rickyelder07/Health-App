@@ -92,6 +92,22 @@ private struct SettingsContentView: View {
                     Text("Integrations")
                 }
 
+                // Notifications Section
+                Section {
+                    NavigationLink {
+                        NotificationSettingsView()
+                    } label: {
+                        SettingRow(
+                            icon: "bell.fill",
+                            iconColor: .purple,
+                            title: "Notifications",
+                            subtitle: nil
+                        )
+                    }
+                } header: {
+                    Text("Notifications")
+                }
+
                 // About Section
                 Section {
                     HStack {
@@ -134,6 +150,26 @@ private struct SettingsContentView: View {
                 } header: {
                     Text("About")
                 }
+
+                #if DEBUG
+                // Debug Menu Section (DEBUG builds only)
+                Section {
+                    NavigationLink {
+                        DebugMenuView()
+                    } label: {
+                        SettingRow(
+                            icon: "hammer.fill",
+                            iconColor: .red,
+                            title: "Debug Menu",
+                            subtitle: "Development & Testing Tools"
+                        )
+                    }
+                } header: {
+                    Text("Developer Tools")
+                } footer: {
+                    Text("Debug menu is only available in DEBUG builds")
+                }
+                #endif
 
                 // Account Section
                 Section {

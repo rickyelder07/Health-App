@@ -1,6 +1,6 @@
 //
 //  ProgressPhoto.swift
-//  Health App
+//  Netfuel
 //
 //  Model for progress photo tracking
 //

@@ -1,6 +1,6 @@
 //
 //  QuickStatsCard.swift
-//  Health App
+//  Netfuel
 //
 //  Reusable quick stats card component
 //

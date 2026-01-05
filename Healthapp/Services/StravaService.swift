@@ -1,6 +1,6 @@
 //
 //  StravaService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for Strava OAuth and activity syncing
 //
@@ -12,55 +12,35 @@ import UIKit
 /// Service for managing Strava OAuth and API interactions
 class StravaService {
     private let supabase = SupabaseClient.shared
-    private let localServer = LocalWebServer()
-    
+
     // MARK: - OAuth Flow
-    
-    /// Start OAuth authorization flow with local web server
-    /// - Parameters:
-    ///   - userId: Current user's ID for state parameter
-    ///   - completion: Callback with authorization code or error
-    func startOAuthFlow(userId: UUID, completion: @escaping (Result<String, Error>) -> Void) {
+
+    /// Start OAuth authorization flow using custom URL scheme
+    /// - Parameter userId: Current user's ID for state parameter
+    /// - Note: After user authorizes, Strava will redirect to netfuel://localhost?code=...
+    ///         The app handles this via .onOpenURL in the main app/view
+    func startOAuthFlow(userId: UUID) {
         let authUrl = buildAuthorizationURL(userId: userId)
-        
-        print("🔵 Starting OAuth flow with local web server")
+
+        print("🔵 Starting OAuth flow with custom URL scheme")
         print("   Full URL: \(authUrl)")
         print("   Redirect URI: \(Configuration.Strava.redirectUri)")
-        print("   Local server port: 8080")
-        
+        print("   After authorization, Strava will redirect to: \(Configuration.Strava.redirectUri)")
+
         guard let url = URL(string: authUrl) else {
             print("❌ Failed to create URL")
-            completion(.failure(StravaError.invalidURL))
             return
         }
-        
-        // Start local server to receive callback
-        do {
-            try localServer.start()
-            
-            // Set callback handler
-            localServer.onCodeReceived = { [weak self] code in
-                print("✅ Authorization code received from local server: \(code.prefix(10))...")
-                self?.localServer.stop()
-                completion(.success(code))
+
+        // Open authorization URL in Safari
+        // After user approves, iOS will automatically return to the app via the custom URL scheme
+        UIApplication.shared.open(url) { success in
+            if success {
+                print("✅ Opened Strava authorization page in Safari")
+                print("💡 Waiting for user to authorize...")
+            } else {
+                print("❌ Failed to open Safari")
             }
-            
-            // Open authorization URL in Safari after server is ready
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                UIApplication.shared.open(url) { success in
-                    if success {
-                        print("✅ Opened Strava authorization page in Safari")
-                    } else {
-                        print("❌ Failed to open Safari")
-                        self.localServer.stop()
-                        completion(.failure(StravaError.invalidURL))
-                    }
-                }
-            }
-            
-        } catch {
-            print("❌ Failed to start local server: \(error)")
-            completion(.failure(error))
         }
     }
     
@@ -68,26 +48,27 @@ class StravaService {
     private func buildAuthorizationURL(userId: UUID) -> String {
         let scope = "activity:read_all,profile:read_all"
         let state = userId.uuidString
-        
-        // URL encode the redirect URI with strict encoding
-        // We need to encode : and / characters for OAuth parameters
-        var allowedCharacters = CharacterSet.alphanumerics
-        allowedCharacters.insert(charactersIn: "-._~") // RFC 3986 unreserved characters
-        
-        guard let encodedRedirectUri = Configuration.Strava.redirectUri.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+
+        // URL encode the redirect URI - allow : and / for custom URL schemes
+        // Custom URL schemes like "netfuel://localhost" need : and / preserved
+        guard let encodedRedirectUri = Configuration.Strava.redirectUri.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             print("❌ Failed to encode redirect URI")
             return ""
         }
-        
+
+        print("📝 Original redirect URI: \(Configuration.Strava.redirectUri)")
         print("📝 Encoded redirect URI: \(encodedRedirectUri)")
-        
-        return "\(Configuration.Strava.authorizationUrl)?" +
+
+        let authUrl = "\(Configuration.Strava.authorizationUrl)?" +
                "client_id=\(Configuration.Strava.clientId)&" +
                "redirect_uri=\(encodedRedirectUri)&" +
                "response_type=code&" +
                "approval_prompt=auto&" +
                "scope=\(scope)&" +
                "state=\(state)"
+
+        print("🔗 Full authorization URL: \(authUrl)")
+        return authUrl
     }
     
     /// Exchange authorization code for access token

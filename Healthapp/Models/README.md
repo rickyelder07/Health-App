@@ -1,6 +1,6 @@
 # Models Documentation
 
-This directory contains all data models for the Health Tracker app. Each model corresponds to a table in the Supabase PostgreSQL database.
+This directory contains all data models for the Netfuel app. Each model corresponds to a table in the Supabase PostgreSQL database.
 
 ## Overview
 

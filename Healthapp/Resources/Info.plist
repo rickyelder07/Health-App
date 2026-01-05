@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Health Tracker</string>
+	<string>Netfuel</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -57,10 +57,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.healthapp.oauth</string>
+			<string>com.netfuel.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>healthapp</string>
+				<string>netfuel</string>
 			</array>
 		</dict>
 	</array>
@@ -77,5 +77,15 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 	</dict>
+	<key>SUPABASE_URL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>STRAVA_CLIENT_ID</key>
+	<string>$(STRAVA_CLIENT_ID)</string>
+	<key>STRAVA_CLIENT_SECRET</key>
+	<string>$(STRAVA_CLIENT_SECRET)</string>
+	<key>USDA_API_KEY</key>
+	<string>$(USDA_API_KEY)</string>
 </dict>
 </plist>

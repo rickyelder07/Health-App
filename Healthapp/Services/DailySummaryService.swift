@@ -1,6 +1,6 @@
 //
 //  DailySummaryService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for calculating and managing daily summaries
 //
@@ -160,6 +160,11 @@ class DailySummaryService {
         let exerciseCalories = try await calculateExerciseCalories(userId: userId, date: date)
         print("🔍 Step 4: COMPLETE - Exercise: \(exerciseCalories)")
 
+        // 4.5. Calculate current calorie goal for historical tracking
+        print("🔍 Step 4.5: Calculating calorie goal...")
+        let calorieGoal = calculateCurrentCalorieGoal(bmr: bmr, tdee: tdee)
+        print("🔍 Step 4.5: COMPLETE - Goal: \(calorieGoal ?? 0)")
+
         // 5. Upsert daily summary
         print("🔍 Step 5: Upserting summary...")
         let result = try await upsertSummary(
@@ -170,7 +175,8 @@ class DailySummaryService {
             carbsConsumed: foodTotals.carbs,
             fatConsumed: foodTotals.fat,
             caloriesBurnedBmr: dailyBaselineBurn,
-            caloriesBurnedExercise: exerciseCalories
+            caloriesBurnedExercise: exerciseCalories,
+            calorieGoal: calorieGoal
         )
         print("🔍 Step 5: COMPLETE")
         print("✅ calculateAndUpdateSummary() - SUCCESS")
@@ -210,13 +216,13 @@ class DailySummaryService {
     func updateExerciseCalories(userId: UUID, date: Date) async throws {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
-        
+
         // Fetch exercise totals
         let exerciseCalories = try await calculateExerciseCalories(userId: userId, date: date)
-        
+
         // Check if summary exists
         let existing = try await fetchSummary(userId: userId, date: date)
-        
+
         if let existing = existing {
             // Update existing summary (keep consumption values)
             try await updateSummaryExercise(
@@ -229,7 +235,40 @@ class DailySummaryService {
             try await calculateAndUpdateSummary(userId: userId, date: date)
         }
     }
-    
+
+    /// Update weight for a specific date
+    /// Use this when logging weight separately from other data
+    /// - Parameters:
+    ///   - userId: User ID
+    ///   - date: Date to log weight for
+    ///   - weight: Weight in kg
+    func updateDailyWeight(userId: UUID, date: Date, weight: Double) async throws {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+
+        // Check if summary exists for this date
+        let existing = try await fetchSummary(userId: userId, date: date)
+
+        if let existing = existing {
+            // Update existing summary with weight
+            try await updateSummaryWeight(
+                userId: userId,
+                date: startOfDay,
+                weight: weight
+            )
+        } else {
+            // Create new summary with weight only
+            // Will trigger full calculation which will set other fields to 0
+            try await calculateAndUpdateSummary(userId: userId, date: date)
+            // Then update with weight
+            try await updateSummaryWeight(
+                userId: userId,
+                date: startOfDay,
+                weight: weight
+            )
+        }
+    }
+
     // MARK: - Calculation Helpers
     
     /// Calculate daily baseline burn from TDEE
@@ -240,11 +279,31 @@ class DailySummaryService {
             print("⚠️ No TDEE available, using default 2000 cal/day")
             return 2000
         }
-        
+
         // TDEE is already daily, so just return it as integer
         return Int(tdee)
     }
-    
+
+    /// Calculate current calorie goal based on user settings
+    /// - Parameters:
+    ///   - bmr: User's BMR
+    ///   - tdee: User's TDEE
+    /// - Returns: Current calorie goal as Int, or nil if cannot be determined
+    private func calculateCurrentCalorieGoal(bmr: Double?, tdee: Double?) -> Int? {
+        let settings = UserSettings.load()
+
+        switch settings.calorieGoalSource {
+        case .bmr:
+            guard let bmr = bmr else { return nil }
+            return Int(bmr)
+        case .tdee:
+            guard let tdee = tdee else { return nil }
+            return Int(tdee)
+        case .custom:
+            return settings.dailyCalorieTarget
+        }
+    }
+
     /// Calculate food totals for a specific date
     private func calculateFoodTotals(userId: UUID, date: Date) async throws -> (calories: Int, protein: Double, carbs: Double, fat: Double) {
         print("  🥗 calculateFoodTotals() - START")
@@ -338,11 +397,12 @@ class DailySummaryService {
         carbsConsumed: Double,
         fatConsumed: Double,
         caloriesBurnedBmr: Int,
-        caloriesBurnedExercise: Int
+        caloriesBurnedExercise: Int,
+        calorieGoal: Int?
     ) async throws -> DailySummary {
         // Check if summary exists
         let existing = try await fetchSummary(userId: userId, date: date)
-        
+
         if existing != nil {
             // Update existing
             let updateRequest = DailySummaryFullUpdateRequest(
@@ -351,7 +411,8 @@ class DailySummaryService {
                 carbsConsumed: carbsConsumed,
                 fatConsumed: fatConsumed,
                 caloriesBurnedBmr: caloriesBurnedBmr,
-                caloriesBurnedExercise: caloriesBurnedExercise
+                caloriesBurnedExercise: caloriesBurnedExercise,
+                calorieGoal: calorieGoal
             )
             
             let response = try await supabase
@@ -379,7 +440,8 @@ class DailySummaryService {
                 carbsConsumed: carbsConsumed,
                 fatConsumed: fatConsumed,
                 caloriesBurnedBmr: caloriesBurnedBmr,
-                caloriesBurnedExercise: caloriesBurnedExercise
+                caloriesBurnedExercise: caloriesBurnedExercise,
+                calorieGoal: calorieGoal
             )
             
             let response = try await supabase
@@ -431,7 +493,25 @@ class DailySummaryService {
         let updateRequest = DailySummaryExerciseUpdateRequest(
             caloriesBurnedExercise: caloriesBurnedExercise
         )
-        
+
+        _ = try await supabase
+            .from("daily_summaries")
+            .update(updateRequest)
+            .eq("user_id", value: userId.uuidString)
+            .eq("date", value: date.ISO8601Format())
+            .execute()
+    }
+
+    /// Update only weight
+    private func updateSummaryWeight(
+        userId: UUID,
+        date: Date,
+        weight: Double
+    ) async throws {
+        let updateRequest = DailySummaryWeightUpdateRequest(
+            weight: weight
+        )
+
         _ = try await supabase
             .from("daily_summaries")
             .update(updateRequest)
@@ -453,7 +533,8 @@ struct CreateDailySummaryRequest: Codable {
     let fatConsumed: Double
     let caloriesBurnedBmr: Int
     let caloriesBurnedExercise: Int
-    
+    let calorieGoal: Int?
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case date
@@ -463,6 +544,7 @@ struct CreateDailySummaryRequest: Codable {
         case fatConsumed = "fat_consumed"
         case caloriesBurnedBmr = "calories_burned_bmr"
         case caloriesBurnedExercise = "calories_burned_exercise"
+        case calorieGoal = "calorie_goal"
     }
 }
 
@@ -474,7 +556,8 @@ struct DailySummaryFullUpdateRequest: Codable {
     let fatConsumed: Double
     let caloriesBurnedBmr: Int
     let caloriesBurnedExercise: Int
-    
+    let calorieGoal: Int?
+
     enum CodingKeys: String, CodingKey {
         case caloriesConsumed = "calories_consumed"
         case proteinConsumed = "protein_consumed"
@@ -482,6 +565,7 @@ struct DailySummaryFullUpdateRequest: Codable {
         case fatConsumed = "fat_consumed"
         case caloriesBurnedBmr = "calories_burned_bmr"
         case caloriesBurnedExercise = "calories_burned_exercise"
+        case calorieGoal = "calorie_goal"
     }
 }
 
@@ -503,9 +587,18 @@ struct DailySummaryConsumptionUpdateRequest: Codable {
 /// Request model for updating exercise only
 struct DailySummaryExerciseUpdateRequest: Codable {
     let caloriesBurnedExercise: Int
-    
+
     enum CodingKeys: String, CodingKey {
         case caloriesBurnedExercise = "calories_burned_exercise"
+    }
+}
+
+/// Request model for updating weight only
+struct DailySummaryWeightUpdateRequest: Codable {
+    let weight: Double
+
+    enum CodingKeys: String, CodingKey {
+        case weight
     }
 }
 

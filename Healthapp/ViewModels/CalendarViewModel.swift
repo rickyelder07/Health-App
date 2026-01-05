@@ -1,6 +1,6 @@
 //
 //  CalendarViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for calendar view and day navigation
 //

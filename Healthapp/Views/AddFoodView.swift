@@ -1,6 +1,6 @@
 //
 //  AddFoodView.swift
-//  Health App
+//  Netfuel
 //
 //  View for adding food entries
 //

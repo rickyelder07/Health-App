@@ -1,6 +1,6 @@
 //
 //  StravaConnection.swift
-//  Health App
+//  Netfuel
 //
 //  Model for Strava OAuth connection and athlete information
 //

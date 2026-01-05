@@ -1,6 +1,6 @@
 //
 //  FoodLogListView.swift
-//  Health App
+//  Netfuel
 //
 //  View for displaying today's food logs with macro tracking
 //
@@ -11,130 +11,224 @@ import SwiftUI
 struct FoodLogListView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = FoodViewModel()
-    
+
     @State private var showingAddFood = false
-    @State private var selectedDate = Date()
     @State private var showingDatePicker = false
-    
-    // Sample targets (should come from user profile)
-    private let caloriesTarget = 2200
-    private let proteinTarget = 150.0
-    private let carbsTarget = 200.0
-    private let fatTarget = 70.0
+    @State private var showSuccessToast = false
+    @State private var showErrorToast = false
+    @State private var toastMessage = ""
+
+    // Load goals from user settings
+    private var settings: UserSettings {
+        UserSettings.load()
+    }
+
+    private var caloriesTarget: Int {
+        if let customTarget = settings.dailyCalorieTarget {
+            return customTarget
+        }
+        // Fall back to default TDEE
+        return 2000
+    }
+
+    private var proteinTarget: Double {
+        // Use user's custom target if set, otherwise use 30% of calorie target
+        return settings.proteinTargetGrams ?? (Double(caloriesTarget) * 0.30 / 4)
+    }
+
+    private var carbsTarget: Double {
+        // Use user's custom target if set, otherwise use 40% of calorie target
+        return settings.carbsTargetGrams ?? (Double(caloriesTarget) * 0.40 / 4)
+    }
+
+    private var fatTarget: Double {
+        // Use user's custom target if set, otherwise use 30% of calorie target
+        return settings.fatTargetGrams ?? (Double(caloriesTarget) * 0.30 / 9)
+    }
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Date Selector
-                    DateSelectorView(
-                        selectedDate: $selectedDate,
-                        onDateChange: {
-                            Task {
-                                await viewModel.refreshTodayLogs()
-                            }
-                        }
-                    )
-                    .padding(.horizontal)
-                    
-                    // Macro Progress Summary
-                    MacroSummaryCard(
-                        calories: viewModel.todayTotalCalories,
-                        caloriesTarget: caloriesTarget,
-                        protein: viewModel.todayTotalProtein,
-                        proteinTarget: proteinTarget,
-                        carbs: viewModel.todayTotalCarbs,
-                        carbsTarget: carbsTarget,
-                        fat: viewModel.todayTotalFat,
-                        fatTarget: fatTarget
-                    )
-                    .padding(.horizontal)
-                    
-                    // Food Logs by Meal Type
-                    FoodLogsByMealView(
-                        viewModel: viewModel,
-                        onDelete: { log in
-                            Task {
-                                await viewModel.deleteFoodLog(log)
-                            }
-                        }
-                    )
-                    .padding(.horizontal)
-                    
-                    // Quick Add Section
-                    if !viewModel.recentFoods.isEmpty {
-                        QuickAddSection(
-                            recentFoods: viewModel.recentFoods,
-                            onSelect: { log in
-                                // Quick log recent food
+                if viewModel.isLoading {
+                    // Loading skeleton
+                    VStack(spacing: 20) {
+                        SkeletonCard()
+                            .frame(height: 80)
+                        SkeletonCard()
+                            .frame(height: 200)
+                        FoodLogSkeleton()
+                    }
+                    .padding()
+                } else {
+                    VStack(spacing: 20) {
+                        // Date Selector
+                        DateSelectorView(
+                            selectedDate: $viewModel.selectedDate,
+                            onDateChange: {
+                                HapticFeedback.selection()
                                 Task {
-                                    _ = await viewModel.logFood(
-                                        foodName: log.foodName,
-                                        brandName: log.brandName,
-                                        servingSize: log.servingSize,
-                                        servingUnit: log.servingUnit,
-                                        calories: log.calories,
-                                        protein: log.protein,
-                                        carbs: log.carbs,
-                                        fat: log.fat,
-                                        fiber: log.fiber,
-                                        sugar: log.sugar,
-                                        sodium: log.sodium,
-                                        servings: log.servings,
-                                        mealType: log.mealType
-                                    )
+                                    await viewModel.refreshTodayLogs()
                                 }
                             }
                         )
                         .padding(.horizontal)
+                        .cardAppearance(delay: 0.0)
+
+                        // Macro Progress Summary
+                        MacroSummaryCard(
+                            calories: viewModel.todayTotalCalories,
+                            caloriesTarget: caloriesTarget,
+                            protein: viewModel.todayTotalProtein,
+                            proteinTarget: proteinTarget,
+                            carbs: viewModel.todayTotalCarbs,
+                            carbsTarget: carbsTarget,
+                            fat: viewModel.todayTotalFat,
+                            fatTarget: fatTarget
+                        )
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.1)
+                        .accessibleCard(
+                            label: "Daily macros: \(viewModel.todayTotalCalories) of \(caloriesTarget) calories",
+                            hint: "Shows daily nutrition progress"
+                        )
+
+                        // Food Logs by Meal Type
+                        if viewModel.todayFoodLogs.isEmpty {
+                            NoFoodLogsEmptyState {
+                                HapticFeedback.light()
+                                showingAddFood = true
+                            }
+                            .padding()
+                            .cardAppearance(delay: 0.2)
+                        } else {
+                            FoodLogsByMealView(
+                                viewModel: viewModel,
+                                onDelete: { log in
+                                    HapticFeedback.medium()
+                                    Task {
+                                        await viewModel.deleteFoodLog(log)
+                                        if viewModel.successMessage != nil {
+                                            HapticFeedback.success()
+                                            toastMessage = "Food deleted"
+                                            showSuccessToast = true
+                                        } else if let error = viewModel.errorMessage {
+                                            HapticFeedback.error()
+                                            toastMessage = error
+                                            showErrorToast = true
+                                        }
+                                        viewModel.clearMessages()
+                                    }
+                                }
+                            )
+                            .padding(.horizontal)
+                            .cardAppearance(delay: 0.2)
+                        }
+
+                        // Quick-Add Buttons
+                        QuickAddButtonsSection(
+                            viewModel: viewModel,
+                            onSuccess: {
+                                HapticFeedback.success()
+                                toastMessage = "Food logged successfully!"
+                                showSuccessToast = true
+                            },
+                            onError: { error in
+                                HapticFeedback.error()
+                                toastMessage = error
+                                showErrorToast = true
+                            }
+                        )
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.3)
+
+                        // Quick Add Section (Recently Logged)
+                        if !viewModel.recentFoods.isEmpty {
+                            QuickAddSection(
+                                recentFoods: viewModel.recentFoods,
+                                onSelect: { log in
+                                    HapticFeedback.light()
+                                    // Quick log recent food
+                                    Task {
+                                        _ = await viewModel.logFood(
+                                            foodName: log.foodName,
+                                            brandName: log.brandName,
+                                            servingSize: log.servingSize,
+                                            servingUnit: log.servingUnit,
+                                            calories: log.calories,
+                                            protein: log.protein,
+                                            carbs: log.carbs,
+                                            fat: log.fat,
+                                            fiber: log.fiber,
+                                            sugar: log.sugar,
+                                            sodium: log.sodium,
+                                            servings: log.servings,
+                                            mealType: log.mealType
+                                        )
+                                        if viewModel.successMessage != nil {
+                                            HapticFeedback.success()
+                                            toastMessage = "Food logged!"
+                                            showSuccessToast = true
+                                        }
+                                        viewModel.clearMessages()
+                                    }
+                                }
+                            )
+                            .padding(.horizontal)
+                            .cardAppearance(delay: 0.4)
+                            .accessibleCard(
+                                label: "Recently logged foods",
+                                hint: "Quick-add foods you've logged recently"
+                            )
+                        }
                     }
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Food Log")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
+                        HapticFeedback.light()
                         showingAddFood = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
                     }
+                    .accessibleButton(label: "Add food", hint: "Opens food search to log a meal")
                 }
             }
             .sheet(isPresented: $showingAddFood) {
                 FoodSearchView(foodViewModel: viewModel)
             }
             .refreshable {
+                HapticFeedback.light()
                 await viewModel.refreshTodayLogs()
+                if viewModel.errorMessage != nil {
+                    HapticFeedback.error()
+                } else {
+                    HapticFeedback.success()
+                }
             }
             .task {
                 if let userId = appState.currentUser?.id {
                     viewModel.setUser(userId: userId)
                 }
             }
-            .alert("Success", isPresented: Binding(
-                get: { viewModel.successMessage != nil },
-                set: { if !$0 { viewModel.clearMessages() } }
-            )) {
-                Button("OK") {
+            .toast(message: toastMessage, isShowing: $showSuccessToast, type: .success)
+            .toast(message: toastMessage, isShowing: $showErrorToast, type: .error)
+            .dismissKeyboardOnTap()
+            .onChange(of: viewModel.successMessage) { message in
+                if let msg = message {
+                    toastMessage = msg
+                    showSuccessToast = true
                     viewModel.clearMessages()
-                }
-            } message: {
-                if let message = viewModel.successMessage {
-                    Text(message)
                 }
             }
-            .alert("Error", isPresented: Binding(
-                get: { viewModel.errorMessage != nil },
-                set: { if !$0 { viewModel.clearMessages() } }
-            )) {
-                Button("OK") {
+            .onChange(of: viewModel.errorMessage) { message in
+                if let msg = message {
+                    toastMessage = msg
+                    showErrorToast = true
                     viewModel.clearMessages()
-                }
-            } message: {
-                if let message = viewModel.errorMessage {
-                    Text(message)
                 }
             }
         }
@@ -160,6 +254,7 @@ struct DateSelectorView: View {
     var body: some View {
         HStack {
             Button {
+                HapticFeedback.selection()
                 selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
                 onDateChange()
             } label: {
@@ -167,23 +262,26 @@ struct DateSelectorView: View {
                     .font(.title3)
                     .foregroundColor(.accentColor)
             }
-            
+            .accessibleButton(label: "Previous day", hint: "Go to previous day")
+
             Spacer()
-            
+
             VStack(spacing: 4) {
                 Text(formattedDate)
                     .font(.headline)
-                
+
                 if isToday {
                     Text("Today")
                         .font(.caption)
                         .foregroundColor(.accentColor)
                 }
             }
-            
+            .accessible(label: isToday ? "Today, \(formattedDate)" : formattedDate, traits: .isHeader)
+
             Spacer()
-            
+
             Button {
+                HapticFeedback.selection()
                 selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
                 onDateChange()
             } label: {
@@ -192,6 +290,7 @@ struct DateSelectorView: View {
                     .foregroundColor(.accentColor)
             }
             .disabled(isToday)
+            .accessibleButton(label: "Next day", hint: "Go to next day")
         }
         .padding()
         .background(Color(.systemGray6))
@@ -394,20 +493,23 @@ struct QuickAddSection: View {
 struct QuickAddCard: View {
     let log: FoodLog
     let onTap: () -> Void
-    
+
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            HapticFeedback.light()
+            onTap()
+        }) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(log.foodName)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                
+
                 Text("\(log.calories) cal")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 HStack(spacing: 4) {
                     Image(systemName: "plus.circle.fill")
                         .font(.caption)
@@ -422,6 +524,175 @@ struct QuickAddCard: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
+        .accessibleButton(label: "Quick add \(log.foodName)", hint: "Quickly log this food again")
+    }
+}
+
+// MARK: - Quick-Add Buttons Section
+
+struct QuickAddButtonsSection: View {
+    @ObservedObject var viewModel: FoodViewModel
+    var onSuccess: (() -> Void)? = nil
+    var onError: ((String) -> Void)? = nil
+
+    @State private var settings = QuickAddSettings.load()
+    @State private var isLogging = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !settings.buttons.isEmpty {
+                Text("Quick-Add")
+                    .font(.headline)
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 12),
+                        GridItem(.flexible(), spacing: 12)
+                    ],
+                    spacing: 12
+                ) {
+                    ForEach(settings.buttons) { button in
+                        QuickAddButtonView(
+                            button: button,
+                            isLogging: isLogging,
+                            onTap: {
+                                Task {
+                                    await logQuickAddFood(button)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            }
+        }
+        .onAppear {
+            // Reload settings when view appears
+            print("🔄 Loading quick-add settings: \(QuickAddSettings.load().buttons.count) buttons")
+            settings = QuickAddSettings.load()
+        }
+    }
+
+    private func logQuickAddFood(_ button: QuickAddFoodButton) async {
+        isLogging = true
+        var success = false
+
+        // Find the food based on the button configuration
+        if let customFoodId = button.customFoodId {
+            // Log custom food
+            if let customFood = viewModel.customFoods.first(where: { $0.id == customFoodId }) {
+                success = await viewModel.logFood(
+                    foodName: customFood.name,
+                    brandName: customFood.brand,
+                    servingSize: customFood.servingSize,
+                    servingUnit: customFood.servingUnit,
+                    calories: customFood.calories,
+                    protein: customFood.protein,
+                    carbs: customFood.carbs,
+                    fat: customFood.fat,
+                    fiber: customFood.fiber,
+                    sugar: customFood.sugar,
+                    sodium: customFood.sodium,
+                    servings: button.servings,
+                    mealType: button.mealType,
+                    logDate: viewModel.selectedDate,
+                    customFoodId: customFood.id
+                )
+            }
+        } else if let customMealId = button.customMealId {
+            // Log custom meal
+            if let customMeal = viewModel.customMeals.first(where: { $0.id == customMealId }) {
+                success = await viewModel.logFood(
+                    foodName: customMeal.name,
+                    brandName: nil,
+                    servingSize: "1",
+                    servingUnit: "meal",
+                    calories: customMeal.totalCalories,
+                    protein: customMeal.totalProtein,
+                    carbs: customMeal.totalCarbs,
+                    fat: customMeal.totalFat,
+                    fiber: nil,
+                    sugar: nil,
+                    sodium: nil,
+                    servings: button.servings,
+                    mealType: button.mealType,
+                    logDate: viewModel.selectedDate,
+                    customMealId: customMeal.id
+                )
+            }
+        }
+
+        isLogging = false
+
+        if success {
+            onSuccess?()
+        } else if let error = viewModel.errorMessage {
+            onError?(error)
+            viewModel.clearMessages()
+        }
+    }
+}
+
+struct QuickAddButtonView: View {
+    let button: QuickAddFoodButton
+    let isLogging: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.medium()
+            onTap()
+        }) {
+            VStack(spacing: 8) {
+                HStack {
+                    Image(systemName: button.mealType.icon)
+                        .font(.title3)
+                    Spacer()
+                    if button.servings != 1.0 {
+                        Text("\(String(format: "%.1f", button.servings))×")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(button.label)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text(button.foodName)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.blue.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .disabled(isLogging)
+        .buttonStyle(.plain)
+        .accessibleButton(
+            label: button.label,
+            hint: "Quick-add \(button.foodName) to \(button.mealType.displayName)"
+        )
     }
 }
 

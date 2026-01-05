@@ -1,6 +1,6 @@
 //
 //  HomeView.swift
-//  Health App
+//  Netfuel
 //
 //  Home dashboard displaying today's summary and quick actions
 //
@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showingStravaSync = false
     @State private var showingAddFood = false
     @State private var showingAddPhoto = false
+    @State private var showingLogWeight = false
 
     var body: some View {
         NavigationView {
@@ -21,7 +22,8 @@ struct HomeView: View {
                         userId: userId,
                         showingAddFood: $showingAddFood,
                         showingAddPhoto: $showingAddPhoto,
-                        showingStravaSync: $showingStravaSync
+                        showingStravaSync: $showingStravaSync,
+                        showingLogWeight: $showingLogWeight
                     )
                 } else {
                     ProgressView("Loading user...")
@@ -38,126 +40,223 @@ private struct HomeContentView: View {
     @Binding var showingAddFood: Bool
     @Binding var showingAddPhoto: Bool
     @Binding var showingStravaSync: Bool
+    @Binding var showingLogWeight: Bool
 
     @StateObject private var viewModel: HomeViewModel
+    @StateObject private var foodViewModel = FoodViewModel()
+    @StateObject private var photoViewModel = ProgressPhotoViewModel()
     @EnvironmentObject var appState: AppState
 
     init(
         userId: UUID,
         showingAddFood: Binding<Bool>,
         showingAddPhoto: Binding<Bool>,
-        showingStravaSync: Binding<Bool>
+        showingStravaSync: Binding<Bool>,
+        showingLogWeight: Binding<Bool>
     ) {
         self.userId = userId
         self._showingAddFood = showingAddFood
         self._showingAddPhoto = showingAddPhoto
         self._showingStravaSync = showingStravaSync
+        self._showingLogWeight = showingLogWeight
         _viewModel = StateObject(wrappedValue: HomeViewModel(userId: userId))
     }
 
+    @State private var showErrorToast = false
+    @State private var showSuccessToast = false
+    @State private var toastMessage = ""
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Welcome header
-                WelcomeHeader(
-                    userName: appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized,
-                    weight: viewModel.currentWeight
-                )
-                .padding(.horizontal)
-                .padding(.top)
+            if viewModel.isLoading {
+                // Loading skeleton
+                VStack(spacing: 20) {
+                    SkeletonCard()
+                        .frame(height: 200)
+                    SkeletonCard()
+                        .frame(height: 150)
+                    SkeletonCard()
+                        .frame(height: 200)
+                }
+                .padding()
+            } else {
+                VStack(spacing: 20) {
+                    // Sync status banner (shows when offline or syncing)
+                    SyncStatusBanner()
+                        .animation(.spring(), value: viewModel.isLoading)
 
-                // Net calories card
-                if let summary = viewModel.dailySummary {
-                    NetCaloriesDashboardCard(
-                        netCalories: viewModel.netCalories,
-                        isInSurplus: viewModel.isInSurplus,
-                        caloriesConsumed: viewModel.caloriesConsumed,
-                        caloriesBurned: viewModel.caloriesBurned
+                    // Welcome header
+                    WelcomeHeader(
+                        userName: {
+                            // Use name if available, otherwise derive from email
+                            if let name = appState.currentUser?.name, !name.isEmpty {
+                                return name
+                            }
+                            return appState.currentUser?.email?.components(separatedBy: "@").first?.capitalized
+                        }(),
+                        weight: viewModel.currentWeight
                     )
                     .padding(.horizontal)
-                }
+                    .padding(.top)
+                    .cardAppearance(delay: 0.0)
+                    .accessibleHeader(label: "Welcome header")
 
-                // Calories progress (circular)
-                if let summary = viewModel.dailySummary {
-                    CaloriesProgressCard(
-                        current: viewModel.caloriesConsumed,
-                        target: viewModel.calorieTarget,
-                        burned: viewModel.caloriesBurned
-                    )
-                    .padding(.horizontal)
-                }
+                    // Net calories card
+                    if let summary = viewModel.dailySummary {
+                        NetCaloriesDashboardCard(
+                            netCalories: viewModel.netCalories,
+                            isInSurplus: viewModel.isInSurplus,
+                            caloriesConsumed: viewModel.caloriesConsumed,
+                            caloriesBurned: viewModel.caloriesBurned
+                        )
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.1)
+                        .accessibleCard(
+                            label: "\(viewModel.isInSurplus ? "Surplus" : "Deficit") of \(abs(viewModel.netCalories)) calories. \(viewModel.caloriesConsumed) consumed, \(viewModel.caloriesBurned) burned",
+                            hint: "Shows your net calorie balance for today"
+                        )
+                    }
 
-                // Macros progress
-                if let summary = viewModel.dailySummary {
+                    // Calories progress (circular)
+                    if let summary = viewModel.dailySummary {
+                        CaloriesProgressCard(
+                            current: viewModel.caloriesConsumed,
+                            target: viewModel.calorieTarget,
+                            burned: viewModel.caloriesBurned
+                        )
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.2)
+                        .accessibleCard(
+                            label: "Calorie progress: \(viewModel.caloriesConsumed) of \(viewModel.calorieTarget) calories",
+                            hint: "Shows progress toward daily calorie target"
+                        )
+                    }
+
+                    // Macros progress - using real-time calculated values
                     MacrosSection(
-                        proteinCurrent: summary.proteinConsumed,
+                        proteinCurrent: viewModel.proteinConsumed,
                         proteinTarget: viewModel.proteinTarget,
-                        carbsCurrent: summary.carbsConsumed,
+                        carbsCurrent: viewModel.carbsConsumed,
                         carbsTarget: viewModel.carbsTarget,
-                        fatCurrent: summary.fatConsumed,
+                        fatCurrent: viewModel.fatConsumed,
                         fatTarget: viewModel.fatTarget
                     )
                     .padding(.horizontal)
-                }
+                    .cardAppearance(delay: 0.3)
+                    .accessibleCard(
+                        label: "Macronutrients: Protein \(Int(viewModel.proteinConsumed)) of \(Int(viewModel.proteinTarget)), Carbs \(Int(viewModel.carbsConsumed)) of \(Int(viewModel.carbsTarget)), Fat \(Int(viewModel.fatConsumed)) of \(Int(viewModel.fatTarget))",
+                        hint: "Shows macronutrient progress"
+                    )
 
-                // Activity summary
-                if !viewModel.activities.isEmpty {
-                    ActivitySummarySection(
-                        activities: viewModel.activities,
-                        totalCalories: viewModel.totalExerciseCalories
+                    // Activity summary
+                    if !viewModel.activities.isEmpty {
+                        ActivitySummarySection(
+                            activities: viewModel.activities,
+                            totalCalories: viewModel.totalExerciseCalories
+                        )
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.4)
+                        .accessibleCard(
+                            label: "Today's activities: \(viewModel.totalExerciseCalories) calories burned",
+                            hint: "Shows exercise activities for today"
+                        )
+                    }
+
+                    // Quick actions
+                    QuickActionsSection(
+                        onLogFood: {
+                            HapticFeedback.light()
+                            showingAddFood = true
+                        },
+                        onAddPhoto: {
+                            HapticFeedback.light()
+                            showingAddPhoto = true
+                        },
+                        onSyncStrava: {
+                            HapticFeedback.light()
+                            showingStravaSync = true
+                        },
+                        onLogWeight: {
+                            HapticFeedback.light()
+                            showingLogWeight = true
+                        }
                     )
                     .padding(.horizontal)
+                    .cardAppearance(delay: 0.5)
+
+                    // Recent food entries
+                    if !viewModel.foodEntries.isEmpty {
+                        RecentFoodSection(entries: viewModel.foodEntries)
+                            .padding(.horizontal)
+                            .cardAppearance(delay: 0.6)
+                            .accessibleCard(
+                                label: "Recent food entries: \(viewModel.foodEntries.count) items",
+                                hint: "Shows recently logged food"
+                            )
+                    }
+
+                    // Recent progress photo
+                    if let photo = viewModel.recentPhoto {
+                        RecentPhotoCard(photo: photo)
+                            .padding(.horizontal)
+                            .cardAppearance(delay: 0.7)
+                            .accessibleCard(
+                                label: "Latest progress photo from \(photo.takenAt.formatted(date: .abbreviated, time: .omitted))",
+                                hint: "Shows your most recent progress photo"
+                            )
+                    }
+
+                    // Empty state
+                    if viewModel.dailySummary == nil && !viewModel.isLoading {
+                        EmptyDashboardView()
+                            .padding()
+                    }
+
+                    Spacer(minLength: 20)
                 }
-
-                // Recent progress photo
-                if let photo = viewModel.recentPhoto {
-                    RecentPhotoCard(photo: photo)
-                        .padding(.horizontal)
-                }
-
-                // Quick actions
-                QuickActionsSection(
-                    onLogFood: { showingAddFood = true },
-                    onAddPhoto: { showingAddPhoto = true },
-                    onSyncStrava: { showingStravaSync = true }
-                )
-                .padding(.horizontal)
-
-                // Recent food entries
-                if !viewModel.foodEntries.isEmpty {
-                    RecentFoodSection(entries: viewModel.foodEntries)
-                        .padding(.horizontal)
-                }
-
-                // Empty state
-                if viewModel.dailySummary == nil && !viewModel.isLoading {
-                    EmptyDashboardView()
-                        .padding()
-                }
-
-                // Error message
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                        .padding()
-                }
-
-                Spacer(minLength: 20)
+                .padding(.vertical)
             }
-            .padding(.vertical)
         }
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable {
+            HapticFeedback.light()
             await viewModel.refresh()
+            if viewModel.errorMessage != nil {
+                HapticFeedback.error()
+                toastMessage = viewModel.errorMessage ?? "Failed to refresh"
+                showErrorToast = true
+            } else {
+                HapticFeedback.success()
+            }
         }
         .task {
             await viewModel.loadTodaySummary()
+            foodViewModel.setUser(userId: userId)
+            photoViewModel.setUser(userId: userId)
+
+            if let error = viewModel.errorMessage {
+                toastMessage = error
+                showErrorToast = true
+            }
+        }
+        .toast(message: toastMessage, isShowing: $showErrorToast, type: .error)
+        .toast(message: toastMessage, isShowing: $showSuccessToast, type: .success)
+        .dismissKeyboardOnTap()
+        .sheet(isPresented: $showingAddFood) {
+            FoodSearchView(foodViewModel: foodViewModel)
+        }
+        .sheet(isPresented: $showingAddPhoto) {
+            AddProgressPhotoView(viewModel: photoViewModel)
         }
         .sheet(isPresented: $showingStravaSync) {
             StravaConnectionView(userId: userId)
         }
+        .sheet(isPresented: $showingLogWeight) {
+            WeightLogView(userId: userId)
+        }
+        .accessibilityElement(children: .contain)
+        .accessible(label: "Dashboard", hint: "View your daily nutrition and activity summary")
     }
 }
 
@@ -184,7 +283,7 @@ private struct WelcomeHeader: View {
                     HStack(spacing: 4) {
                         Image(systemName: "scalemass")
                             .font(.caption)
-                        Text(String(format: "%.1f kg", weight))
+                        Text(UnitFormatter.formatWeight(weight))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -456,7 +555,7 @@ private struct ActivityRowCompact: View {
             Spacer()
 
             if let distance = activity.distance {
-                Text(String(format: "%.1f km", distance / 1000))
+                Text(UnitFormatter.formatDistance(distance))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -524,33 +623,45 @@ private struct QuickActionsSection: View {
     let onLogFood: () -> Void
     let onAddPhoto: () -> Void
     let onSyncStrava: () -> Void
+    let onLogWeight: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
                 .font(.headline)
 
-            HStack(spacing: 12) {
-                QuickActionButton(
-                    icon: "plus.circle.fill",
-                    title: "Log Food",
-                    color: .blue,
-                    action: onLogFood
-                )
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    QuickActionButton(
+                        icon: "plus.circle.fill",
+                        title: "Log Food",
+                        color: .blue,
+                        action: onLogFood
+                    )
 
-                QuickActionButton(
-                    icon: "camera.fill",
-                    title: "Add Photo",
-                    color: .purple,
-                    action: onAddPhoto
-                )
+                    QuickActionButton(
+                        icon: "camera.fill",
+                        title: "Add Photo",
+                        color: .purple,
+                        action: onAddPhoto
+                    )
+                }
 
-                QuickActionButton(
-                    icon: "arrow.triangle.2.circlepath",
-                    title: "Sync Strava",
-                    color: .orange,
-                    action: onSyncStrava
-                )
+                HStack(spacing: 12) {
+                    QuickActionButton(
+                        icon: "arrow.triangle.2.circlepath",
+                        title: "Sync Strava",
+                        color: .orange,
+                        action: onSyncStrava
+                    )
+
+                    QuickActionButton(
+                        icon: "scalemass.fill",
+                        title: "Log Weight",
+                        color: .green,
+                        action: onLogWeight
+                    )
+                }
             }
         }
     }
@@ -586,6 +697,7 @@ private struct QuickActionButton: View {
             )
             .cornerRadius(12)
         }
+        .accessibleButton(label: title, hint: "Quick action to \(title.lowercased())")
     }
 }
 

@@ -1,6 +1,6 @@
 //
 //  EditProfileView.swift
-//  Health App
+//  Netfuel
 //
 //  View for editing user profile and physical stats
 //
@@ -15,7 +15,7 @@ struct EditProfileView: View {
     @FocusState private var focusedField: Field?
     
     enum Field: Hashable {
-        case weight, height, age
+        case name, weight, height, age
     }
     
     init(appState: AppState) {
@@ -30,20 +30,27 @@ struct EditProfileView: View {
                     .padding(.horizontal)
                     .padding(.top)
                 
+                // Personal Info
+                VStack(spacing: 16) {
+                    // Name Input
+                    nameInputSection
+                }
+                .padding(.horizontal)
+
                 // Physical Stats Form
                 VStack(spacing: 16) {
                     // Weight Input
                     weightInputSection
-                    
+
                     // Height Input
                     heightInputSection
-                    
+
                     // Age Input
                     ageInputSection
-                    
+
                     // Gender Picker
                     genderPickerSection
-                    
+
                     // Activity Level Picker
                     activityLevelSection
                 }
@@ -136,7 +143,28 @@ struct EditProfileView: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
     }
-    
+
+    private var nameInputSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("First Name")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+
+            TextField("Enter your name", text: $viewModel.name)
+                .font(.system(size: 20, weight: .medium))
+                .focused($focusedField, equals: .name)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .weight }
+                .textContentType(.givenName)
+                .autocapitalization(.words)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+    }
+
     private var weightInputSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Weight")

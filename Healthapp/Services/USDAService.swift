@@ -1,6 +1,6 @@
 //
 //  USDAService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for handling USDA FoodData Central API integration
 //

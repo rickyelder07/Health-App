@@ -1,6 +1,6 @@
 //
 //  CalendarView.swift
-//  Health App
+//  Netfuel
 //
 //  Calendar view for viewing daily summaries
 //

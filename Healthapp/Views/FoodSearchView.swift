@@ -1,6 +1,6 @@
 //
 //  FoodSearchView.swift
-//  Health App
+//  Netfuel
 //
 //  View for searching foods (USDA, custom foods, custom meals)
 //
@@ -530,49 +530,6 @@ struct EmptySearchView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct EmptyStateView: View {
-    let icon: String
-    let title: String
-    let message: String
-    let actionTitle: String
-    let action: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            VStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 60))
-                    .foregroundColor(.secondary)
-                
-                Text(title)
-                    .font(.title3)
-                    .fontWeight(.medium)
-                
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-            }
-            
-            Button(action: action) {
-                Text(actionTitle)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: 200)
-                    .padding()
-                    .background(Color.accentColor)
-                    .cornerRadius(12)
-            }
-            
-            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

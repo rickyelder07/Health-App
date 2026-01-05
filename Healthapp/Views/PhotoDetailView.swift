@@ -1,6 +1,6 @@
 //
 //  PhotoDetailView.swift
-//  Health App
+//  Netfuel
 //
 //  Full screen photo detail view
 //

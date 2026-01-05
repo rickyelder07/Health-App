@@ -1,6 +1,6 @@
 //
 //  User.swift
-//  Health App
+//  Netfuel
 //
 //  User profile model with physical stats and calorie calculations
 //
@@ -12,7 +12,8 @@ import Foundation
 struct User: Codable, Identifiable {
     let id: UUID
     var email: String?
-    
+    var name: String? // User's first name
+
     // Physical stats
     var weight: Double? // in kg
     var height: Double? // in cm
@@ -31,6 +32,7 @@ struct User: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id
         case email
+        case name
         case weight
         case height
         case age

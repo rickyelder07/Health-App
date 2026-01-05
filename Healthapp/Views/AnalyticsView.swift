@@ -1,6 +1,6 @@
 //
 //  AnalyticsView.swift
-//  Health App
+//  Netfuel
 //
 //  Main analytics view with tabs for different trend views
 //
@@ -57,7 +57,7 @@ private struct AnalyticsContentView: View {
 
                 // Content
                 if viewModel.isLoading {
-                    LoadingView()
+                    LoadingView(message: "Loading analytics...")
                 } else if !viewModel.dailySummaries.isEmpty || !viewModel.activities.isEmpty {
                     TabView(selection: $selectedTab) {
                         WeightTrendView(viewModel: viewModel)
@@ -173,21 +173,6 @@ private struct TabSelector: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Loading View
-
-private struct LoadingView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
-            Text("Loading analytics...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

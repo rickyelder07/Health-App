@@ -1,6 +1,6 @@
 //
 //  ActivityTrendView.swift
-//  Health App
+//  Netfuel
 //
 //  Activity trend view with statistics and charts
 //

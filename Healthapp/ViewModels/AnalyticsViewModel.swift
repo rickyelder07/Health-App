@@ -1,6 +1,6 @@
 //
 //  AnalyticsViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for analytics and trends
 //

@@ -1,6 +1,6 @@
 //
 //  AuthenticationViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for handling authentication logic
 //

@@ -11,7 +11,7 @@ import os.log
 /// Custom logger for the app
 class Logger {
     
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.healthapp"
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.netfuel"
     
     /// Logger categories
     enum Category: String {

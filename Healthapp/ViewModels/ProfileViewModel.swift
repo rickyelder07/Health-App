@@ -1,6 +1,6 @@
 //
 //  ProfileViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for managing user profile state and operations
 //
@@ -13,7 +13,8 @@ import SwiftUI
 @MainActor
 class ProfileViewModel: ObservableObject {
     // MARK: - Published Properties
-    
+
+    @Published var name: String = ""
     @Published var weight: String = ""
     @Published var height: String = ""
     @Published var age: String = ""
@@ -46,20 +47,23 @@ class ProfileViewModel: ObservableObject {
     /// Load current user profile into form fields
     func loadCurrentProfile() {
         guard let user = appState.currentUser else { return }
-        
+
+        // Load name
+        name = user.name ?? ""
+
         // Load values
         if let userWeight = user.weight {
             weight = String(format: "%.1f", userWeight)
         }
-        
+
         if let userHeight = user.height {
             height = String(format: "%.0f", userHeight)
         }
-        
+
         if let userAge = user.age {
             age = "\(userAge)"
         }
-        
+
         gender = user.gender ?? .male
         activityLevel = user.activityLevel ?? .sedentary
         
@@ -234,6 +238,7 @@ class ProfileViewModel: ObservableObject {
             
             let user = try await profileService.updateProfile(
                 userId: userId,
+                name: name.isEmpty ? nil : name,
                 weight: weightValue,
                 height: heightValue,
                 age: ageValue,

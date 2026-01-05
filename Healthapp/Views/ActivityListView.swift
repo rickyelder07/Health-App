@@ -1,6 +1,6 @@
 //
 //  ActivityListView.swift
-//  Health App
+//  Netfuel
 //
 //  View for displaying all Strava activities with filtering
 //

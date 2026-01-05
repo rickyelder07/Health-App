@@ -1,6 +1,6 @@
 //
 //  FoodSearchViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for food search functionality
 //

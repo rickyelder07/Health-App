@@ -1,6 +1,6 @@
 //
 //  AuthenticationView.swift
-//  Health App
+//  Netfuel
 //
 //  View for user authentication (sign in / sign up)
 //

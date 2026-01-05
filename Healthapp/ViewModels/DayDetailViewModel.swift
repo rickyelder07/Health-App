@@ -1,11 +1,12 @@
 //
 //  DayDetailViewModel.swift
-//  Health App
+//  Netfuel
 //
 //  ViewModel for day detail view
 //
 
 import Foundation
+import UIKit
 import Combine
 
 /// ViewModel for detailed day view
@@ -29,6 +30,7 @@ class DayDetailViewModel: ObservableObject {
     private let foodService = FoodService()
     private let stravaService = StravaService()
     private let photoService = PhotoService()
+    private let profileService = ProfileService()
 
     // MARK: - Initialization
 
@@ -60,6 +62,60 @@ class DayDetailViewModel: ObservableObject {
     /// Refresh data
     func refresh() async {
         await loadDayData()
+    }
+
+    /// Update weight for this day
+    func updateWeight(_ newWeight: Double) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            // Update user's weight in profile
+            _ = try await profileService.updateWeight(userId: userId, weight: newWeight)
+
+            // Update the weight in the summary
+            weight = newWeight
+            if var currentSummary = summary {
+                currentSummary.weight = newWeight
+                summary = currentSummary
+            }
+
+            // Refresh data to get updated summary
+            await loadSummary()
+
+            isLoading = false
+            return true
+        } catch {
+            print("❌ Error updating weight: \(error)")
+            errorMessage = "Failed to update weight"
+            isLoading = false
+            return false
+        }
+    }
+
+    /// Upload progress photo for this day
+    func uploadPhoto(image: UIImage, notes: String?) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let photo = try await photoService.uploadPhoto(
+                image: image,
+                userId: userId,
+                weight: weight,
+                notes: notes,
+                takenAt: date
+            )
+
+            progressPhoto = photo
+            isLoading = false
+            return true
+        } catch {
+            print("❌ Error uploading photo: \(error)")
+            errorMessage = "Failed to upload photo"
+            isLoading = false
+            return false
+        }
     }
 
     // MARK: - Private Methods
@@ -132,5 +188,47 @@ class DayDetailViewModel: ObservableObject {
             print("❌ Error loading progress photo: \(error)")
             // Don't show error - photos are optional
         }
+    }
+
+    // MARK: - Computed Properties
+
+    /// Total calories consumed - calculated directly from food logs for real-time accuracy
+    var caloriesConsumed: Int {
+        foodLogs.reduce(0) { $0 + Int($1.totalCalories) }
+    }
+
+    /// Total protein consumed
+    var proteinConsumed: Double {
+        foodLogs.reduce(0.0) { $0 + $1.totalProtein }
+    }
+
+    /// Total carbs consumed
+    var carbsConsumed: Double {
+        foodLogs.reduce(0.0) { $0 + $1.totalCarbs }
+    }
+
+    /// Total fat consumed
+    var fatConsumed: Double {
+        foodLogs.reduce(0.0) { $0 + $1.totalFat }
+    }
+
+    /// Total exercise calories from activities
+    var caloriesBurnedExercise: Int {
+        activities.reduce(0) { $0 + Int($1.calories) }
+    }
+
+    /// BMR calories burned - from summary or fallback to 0
+    var caloriesBurnedBmr: Int {
+        summary?.caloriesBurnedBmr ?? 0
+    }
+
+    /// Total calories burned (BMR + exercise)
+    var totalCaloriesBurned: Int {
+        caloriesBurnedBmr + caloriesBurnedExercise
+    }
+
+    /// Net calories (consumed - burned)
+    var netCalories: Int {
+        caloriesConsumed - totalCaloriesBurned
     }
 }

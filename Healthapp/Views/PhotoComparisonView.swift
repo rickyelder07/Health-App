@@ -1,6 +1,6 @@
 //
 //  PhotoComparisonView.swift
-//  Health App
+//  Netfuel
 //
 //  Side-by-side photo comparison view
 //

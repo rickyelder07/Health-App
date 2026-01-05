@@ -11,9 +11,13 @@ import Combine
 
 /// Monitor network connectivity
 class NetworkMonitor: ObservableObject {
+    // MARK: - Singleton
+
+    static let shared = NetworkMonitor()
+
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
-    
+
     @Published var isConnected: Bool = true
     @Published var connectionType: ConnectionType = .unknown
     
@@ -23,8 +27,8 @@ class NetworkMonitor: ObservableObject {
         case ethernet
         case unknown
     }
-    
-    init() {
+
+    private init() {
         startMonitoring()
     }
     

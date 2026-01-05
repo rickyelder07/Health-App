@@ -1,6 +1,6 @@
 //
 //  FoodEntry.swift
-//  Health App
+//  Netfuel
 //
 //  Model for food logging with full macronutrients
 //

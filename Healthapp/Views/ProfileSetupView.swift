@@ -1,6 +1,6 @@
 //
 //  ProfileSetupView.swift
-//  Health App
+//  Netfuel
 //
 //  First-time user profile setup view
 //
@@ -327,7 +327,7 @@ struct ProfileSetupView: View {
             Text("Your Daily Calorie Needs")
                 .font(.headline)
                 .foregroundColor(.primary)
-            
+
             HStack(spacing: 20) {
                 // BMR
                 VStack(spacing: 8) {
@@ -335,12 +335,17 @@ struct ProfileSetupView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(Int(bmr))")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(.blue.gradient)
-                    
-                    Text("Base Calories")
+
+                    Text("Basal Metabolic Rate")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+
+                    Text("Calories at rest")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -348,19 +353,24 @@ struct ProfileSetupView: View {
                 .padding()
                 .background(Color.blue.opacity(0.1))
                 .cornerRadius(12)
-                
+
                 // TDEE
                 VStack(spacing: 8) {
                     Text("TDEE")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(Int(tdee))")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(.green.gradient)
-                    
-                    Text("Total Calories")
+
+                    Text("Total Daily Energy")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+
+                    Text("Including activity")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

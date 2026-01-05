@@ -1,6 +1,6 @@
 //
 //  AddProgressPhotoView.swift
-//  Health App
+//  Netfuel
 //
 //  View for adding new progress photos
 //

@@ -1,6 +1,6 @@
 //
 //  PhotoService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for managing progress photos with Supabase Storage
 //

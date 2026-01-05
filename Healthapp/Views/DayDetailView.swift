@@ -1,6 +1,6 @@
 //
 //  DayDetailView.swift
-//  Health App
+//  Netfuel
 //
 //  Detailed view for a specific day's data
 //
@@ -14,6 +14,13 @@ struct DayDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: DayDetailViewModel
+
+    @State private var showingWeightEntry = false
+    @State private var showingPhotoUpload = false
+    @State private var weightInput: String = ""
+    @State private var photoNotes: String = ""
+    @State private var selectedImage: UIImage?
+    @State private var showingImagePicker = false
 
     init(userId: UUID, date: Date, summary: DailySummary?) {
         self.userId = userId
@@ -29,17 +36,13 @@ struct DayDetailView: View {
                     // Date header
                     DateHeaderView(date: date, weight: viewModel.weight)
 
-                    // Net calories card
-                    if let summary = viewModel.summary {
-                        NetCaloriesCard(summary: summary)
-                            .padding(.horizontal)
-                    }
+                    // Net calories card - using real-time calculated values
+                    NetCaloriesCard(viewModel: viewModel)
+                        .padding(.horizontal)
 
-                    // Macro summary using existing component
-                    if let summary = viewModel.summary {
-                        DayMacroSummary(summary: summary)
-                            .padding(.horizontal)
-                    }
+                    // Macro summary using real-time calculated values
+                    DayMacroSummary(viewModel: viewModel)
+                        .padding(.horizontal)
 
                     // Food logs
                     if !viewModel.foodLogs.isEmpty {
@@ -85,6 +88,26 @@ struct DayDetailView: View {
             .navigationTitle("Day Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Menu {
+                        Button {
+                            weightInput = viewModel.weight.map { String(format: "%.1f", $0) } ?? ""
+                            showingWeightEntry = true
+                        } label: {
+                            Label("Log Weight", systemImage: "scalemass")
+                        }
+
+                        Button {
+                            showingImagePicker = true
+                        } label: {
+                            Label("Add Photo", systemImage: "camera")
+                        }
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
@@ -93,6 +116,62 @@ struct DayDetailView: View {
             }
             .task {
                 await viewModel.loadDayData()
+            }
+            .alert("Log Weight", isPresented: $showingWeightEntry) {
+                TextField("Weight (kg)", text: $weightInput)
+                    .keyboardType(.decimalPad)
+
+                Button("Cancel", role: .cancel) {}
+
+                Button("Save") {
+                    if let weight = Double(weightInput) {
+                        Task {
+                            let success = await viewModel.updateWeight(weight)
+                            if success {
+                                await viewModel.refresh()
+                            }
+                        }
+                    }
+                }
+            } message: {
+                Text("Enter your weight for \(date.displayString)")
+            }
+            .sheet(isPresented: $showingImagePicker) {
+                ImagePicker(sourceType: .photoLibrary) { image in
+                    selectedImage = image
+                    showingPhotoUpload = true
+                }
+            }
+            .sheet(isPresented: $showingPhotoUpload) {
+                PhotoUploadSheet(
+                    image: $selectedImage,
+                    notes: $photoNotes,
+                    date: date,
+                    onSave: {
+                        guard let image = selectedImage else {
+                            return
+                        }
+
+                        Task {
+                            let success = await viewModel.uploadPhoto(
+                                image: image,
+                                notes: photoNotes.isEmpty ? nil : photoNotes
+                            )
+
+                            if success {
+                                selectedImage = nil
+                                photoNotes = ""
+                                showingPhotoUpload = false
+                                await viewModel.refresh()
+                            }
+                        }
+                    },
+                    onCancel: {
+                        selectedImage = nil
+                        photoNotes = ""
+                        showingPhotoUpload = false
+                    }
+                )
             }
         }
     }
@@ -124,7 +203,7 @@ private struct DateHeaderView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "scalemass")
                         .font(.caption)
-                    Text(String(format: "%.1f kg", weight))
+                    Text(UnitFormatter.formatWeight(weight))
                         .font(.subheadline)
                 }
                 .foregroundColor(.secondary)
@@ -139,25 +218,17 @@ private struct DateHeaderView: View {
 // MARK: - Net Calories Card
 
 private struct NetCaloriesCard: View {
-    let summary: DailySummary
-
-    var netCalories: Int {
-        summary.netCalories ?? summary.calculateNetCalories()
-    }
-
-    var totalBurned: Int {
-        summary.totalCaloriesBurned ?? summary.calculateTotalCaloriesBurned()
-    }
+    @ObservedObject var viewModel: DayDetailViewModel
 
     var isInSurplus: Bool {
-        netCalories > 0
+        viewModel.netCalories > 0
     }
 
     var body: some View {
         VStack(spacing: 16) {
             // Net calories display
             VStack(spacing: 4) {
-                Text("\(abs(netCalories))")
+                Text("\(abs(viewModel.netCalories))")
                     .font(.system(size: 48, weight: .bold))
                     .foregroundColor(isInSurplus ? .red : .green)
 
@@ -173,21 +244,21 @@ private struct NetCaloriesCard: View {
                 StatColumn(
                     icon: "fork.knife",
                     color: .blue,
-                    value: summary.caloriesConsumed,
+                    value: viewModel.caloriesConsumed,
                     label: "Consumed"
                 )
 
                 StatColumn(
                     icon: "flame.fill",
                     color: .orange,
-                    value: totalBurned,
+                    value: viewModel.totalCaloriesBurned,
                     label: "Burned"
                 )
 
                 StatColumn(
                     icon: "figure.run",
                     color: .green,
-                    value: summary.caloriesBurnedExercise,
+                    value: viewModel.caloriesBurnedExercise,
                     label: "Exercise"
                 )
             }
@@ -225,7 +296,7 @@ private struct StatColumn: View {
 // MARK: - Day Macro Summary (renamed to avoid conflict)
 
 private struct DayMacroSummary: View {
-    let summary: DailySummary
+    @ObservedObject var viewModel: DayDetailViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -236,19 +307,19 @@ private struct DayMacroSummary: View {
             VStack(spacing: 12) {
                 DayMacroProgressBar(
                     name: "Protein",
-                    value: summary.proteinConsumed,
+                    value: viewModel.proteinConsumed,
                     color: .red
                 )
 
                 DayMacroProgressBar(
                     name: "Carbs",
-                    value: summary.carbsConsumed,
+                    value: viewModel.carbsConsumed,
                     color: .blue
                 )
 
                 DayMacroProgressBar(
                     name: "Fat",
-                    value: summary.fatConsumed,
+                    value: viewModel.fatConsumed,
                     color: .orange
                 )
             }
@@ -417,7 +488,7 @@ private struct DayActivityRow: View {
 
                 HStack(spacing: 12) {
                     if let distance = activity.distance {
-                        Label(String(format: "%.1f km", distance / 1000), systemImage: "location")
+                        Label(UnitFormatter.formatDistance(distance), systemImage: "location")
                             .font(.caption)
                     }
 
@@ -519,6 +590,72 @@ private struct EmptyDayView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
+    }
+}
+
+// MARK: - Photo Upload Sheet
+
+struct PhotoUploadSheet: View {
+    @Binding var image: UIImage?
+    @Binding var notes: String
+    let date: Date
+    let onSave: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Preview image
+                    if let image = image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 300)
+                            .clipped()
+                            .cornerRadius(12)
+                            .padding()
+                    }
+
+                    // Date display
+                    Text("Progress Photo for \(date.displayString)")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    // Notes field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notes (Optional)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextEditor(text: $notes)
+                            .frame(height: 100)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+                }
+            }
+            .navigationTitle("Add Progress Photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        onSave()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 //
 //  StravaModels.swift
-//  Health App
+//  Netfuel
 //
 //  Models for Strava API responses
 //

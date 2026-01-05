@@ -1,6 +1,6 @@
 //
 //  SupabaseClient.swift
-//  Health App
+//  Netfuel
 //
 //  Singleton service for managing Supabase connection
 //

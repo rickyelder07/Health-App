@@ -1,6 +1,6 @@
 //
 //  FoodService.swift
-//  Health App
+//  Netfuel
 //
 //  Service for food logging with USDA database integration and custom foods/meals
 //

@@ -38,7 +38,7 @@ class AppState: ObservableObject {
                 do {
                     let response = try await SupabaseClient.shared.client
                         .from("users")
-                        .select("id, weight, height, age, gender, activity_level, bmr, tdee, created_at, updated_at")
+                        .select("id, name, weight, height, age, gender, activity_level, bmr, tdee, created_at, updated_at")
                         .eq("id", value: session.user.id.uuidString)
                         .single()
                         .execute()

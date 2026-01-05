@@ -1,6 +1,6 @@
 //
 //  FoodDetailView.swift
-//  Health App
+//  Netfuel
 //
 //  View for displaying food details and logging
 //
@@ -19,6 +19,7 @@ struct FoodDetailView: View {
     // Logging parameters
     @State private var servings: Double = 1.0
     @State private var selectedMealType: MealType = .breakfast
+    @State private var selectedDate: Date = Date()
     @State private var isLogging = false
     
     init(usdaFood: USDAFood, foodViewModel: FoodViewModel, onLog: @escaping () -> Void) {
@@ -276,7 +277,26 @@ struct FoodDetailView: View {
                         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                     }
                     .padding(.horizontal)
-                    
+
+                    // Date Selector
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Date")
+                            .font(.headline)
+
+                        DatePicker(
+                            "Log Date",
+                            selection: $selectedDate,
+                            in: ...Date(),
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     // Meal Type Selector
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Meal Type")
@@ -399,6 +419,7 @@ struct FoodDetailView: View {
                 sodium: baseSodium,
                 servings: servings,
                 mealType: selectedMealType,
+                logDate: selectedDate,
                 usdaFdcId: usdaFood.map { String($0.fdcId) },
                 customFoodId: customFood?.id
             )
@@ -471,6 +492,7 @@ struct MealDetailView: View {
     
     @State private var multiplier: Double = 1.0
     @State private var selectedMealType: MealType = .lunch
+    @State private var selectedDate: Date = Date()
     @State private var isLogging = false
     @State private var mealFoods: [CustomMealFood] = []
     
@@ -610,7 +632,26 @@ struct MealDetailView: View {
                         )
                     }
                     .padding(.horizontal)
-                    
+
+                    // Date Selector
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Date")
+                            .font(.headline)
+
+                        DatePicker(
+                            "Log Date",
+                            selection: $selectedDate,
+                            in: ...Date(),
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     // Meal Type
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Meal Type")
@@ -687,6 +728,7 @@ struct MealDetailView: View {
                 sodium: nil,
                 servings: multiplier,
                 mealType: selectedMealType,
+                logDate: selectedDate,
                 customMealId: meal.id
             )
             

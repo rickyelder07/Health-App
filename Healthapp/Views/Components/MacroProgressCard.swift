@@ -1,6 +1,6 @@
 //
 //  MacroProgressCard.swift
-//  Health App
+//  Netfuel
 //
 //  Reusable macro progress card component
 //
