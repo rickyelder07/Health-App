@@ -12,11 +12,16 @@ struct FoodLogListView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = FoodViewModel()
 
-    @State private var showingAddFood = false
+    @State private var activeSheet: FoodLogSheet?
     @State private var showingDatePicker = false
     @State private var showSuccessToast = false
     @State private var showErrorToast = false
     @State private var toastMessage = ""
+
+    enum FoodLogSheet: Identifiable {
+        case addFood, myMeals, createFood, createMeal
+        var id: Self { self }
+    }
 
     // Load goals from user settings
     private var settings: UserSettings {
@@ -93,11 +98,19 @@ struct FoodLogListView: View {
                             hint: "Shows daily nutrition progress"
                         )
 
+                        // Saved Meals Quick-Add
+                        SavedMealsButton(viewModel: viewModel) {
+                            HapticFeedback.light()
+                            activeSheet = .myMeals
+                        }
+                        .padding(.horizontal)
+                        .cardAppearance(delay: 0.15)
+
                         // Food Logs by Meal Type
                         if viewModel.todayFoodLogs.isEmpty {
                             NoFoodLogsEmptyState {
                                 HapticFeedback.light()
-                                showingAddFood = true
+                                activeSheet = .addFood
                             }
                             .padding()
                             .cardAppearance(delay: 0.2)
@@ -189,18 +202,44 @@ struct FoodLogListView: View {
             .navigationTitle("Food Log")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        HapticFeedback.light()
-                        showingAddFood = true
+                    Menu {
+                        Button {
+                            HapticFeedback.light()
+                            activeSheet = .addFood
+                        } label: {
+                            Label("Add Food", systemImage: "magnifyingglass")
+                        }
+                        Divider()
+                        Button {
+                            HapticFeedback.light()
+                            activeSheet = .createFood
+                        } label: {
+                            Label("New Custom Food", systemImage: "plus.circle")
+                        }
+                        Button {
+                            HapticFeedback.light()
+                            activeSheet = .createMeal
+                        } label: {
+                            Label("New Custom Meal", systemImage: "fork.knife.circle")
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
                     }
-                    .accessibleButton(label: "Add food", hint: "Opens food search to log a meal")
+                    .accessibleButton(label: "Add food or create meal", hint: "Log food or create a custom food or meal")
                 }
             }
-            .sheet(isPresented: $showingAddFood) {
-                FoodSearchView(foodViewModel: viewModel)
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .addFood:
+                    FoodSearchView(foodViewModel: viewModel)
+                case .myMeals:
+                    QuickMealPickerView(viewModel: viewModel)
+                case .createFood:
+                    CreateCustomFoodView(viewModel: viewModel)
+                case .createMeal:
+                    CreateCustomMealView(viewModel: viewModel)
+                }
             }
             .refreshable {
                 HapticFeedback.light()
@@ -726,6 +765,120 @@ struct QuickAddButtonView: View {
             label: button.label,
             hint: "Quick-add \(button.foodName) to \(button.mealType.displayName)"
         )
+    }
+}
+
+// MARK: - Saved Meals Button
+
+struct SavedMealsButton: View {
+    @ObservedObject var viewModel: FoodViewModel
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: "fork.knife.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add a Saved Meal")
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    Text(viewModel.customMeals.isEmpty
+                        ? "No saved meals yet — tap + to create one"
+                        : "\(viewModel.customMeals.count) saved meal\(viewModel.customMeals.count == 1 ? "" : "s") available")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.customMeals.isEmpty)
+    }
+}
+
+// MARK: - Quick Meal Picker
+
+struct QuickMealPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: FoodViewModel
+    @State private var searchText = ""
+    @State private var selectedMeal: CustomMeal?
+
+    private var filteredMeals: [CustomMeal] {
+        guard !searchText.isEmpty else { return viewModel.customMeals }
+        return viewModel.customMeals.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    private var favoriteMeals: [CustomMeal] { filteredMeals.filter { $0.isFavorite } }
+    private var otherMeals: [CustomMeal]    { filteredMeals.filter { !$0.isFavorite } }
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if viewModel.customMeals.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 50)).foregroundColor(.secondary)
+                        Text("No Saved Meals")
+                            .font(.title3).fontWeight(.medium)
+                        Text("Use the + menu on the Food Log page to create a custom meal.")
+                            .font(.subheadline).foregroundColor(.secondary)
+                            .multilineTextAlignment(.center).padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        if !favoriteMeals.isEmpty {
+                            Section("Favorites") {
+                                ForEach(favoriteMeals) { meal in
+                                    mealRow(meal)
+                                }
+                            }
+                        }
+                        Section(favoriteMeals.isEmpty ? "All Meals" : "Other Meals") {
+                            ForEach(otherMeals) { meal in
+                                mealRow(meal)
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                    .searchable(text: $searchText, prompt: "Search saved meals")
+                }
+            }
+            .navigationTitle("Add Saved Meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .sheet(item: $selectedMeal) { meal in
+            MealDetailView(
+                foodViewModel: viewModel,
+                meal: meal,
+                onLogCallback: { dismiss() }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func mealRow(_ meal: CustomMeal) -> some View {
+        Button { selectedMeal = meal } label: {
+            CustomMealRow(meal: meal, viewModel: viewModel)
+        }
+        .buttonStyle(.plain)
     }
 }
 
