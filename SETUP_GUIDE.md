@@ -1,6 +1,6 @@
-# Health Tracker - Setup Guide
+# Netfuel - Setup Guide
 
-This guide will walk you through setting up the Health Tracker iOS app from scratch.
+This guide will walk you through setting up the Netfuel iOS app from scratch.
 
 ## Table of Contents
 
@@ -31,14 +31,14 @@ Before you begin, make sure you have:
 2. Select "Create a new Xcode project"
 3. Choose "iOS" → "App"
 4. Configure your project:
-   - Product Name: `Health Tracker` or `Health App`
+   - Product Name: `Netfuel`
    - Team: Select your development team
    - Organization Identifier: `com.yourname` (e.g., `com.johndoe`)
    - Interface: **SwiftUI**
    - Language: **Swift**
    - Storage: None
    - Uncheck "Include Tests" (optional)
-5. Choose save location (use the "Health App" folder)
+5. Choose save location (use the "Netfuel" folder)
 
 ### Step 2: Add Swift Package Dependencies
 
@@ -52,7 +52,7 @@ Wait for the package to download and resolve dependencies.
 
 ### Step 3: Organize Project Files
 
-1. Delete the default `ContentView.swift` and `HealthApp.swift` files that Xcode created
+1. Delete the default `ContentView.swift` and `NetfuelApp.swift` files that Xcode created
 2. Replace them with the files from this repository
 3. Create the following groups (folders) in Xcode:
    - Config
@@ -74,7 +74,7 @@ Wait for the package to download and resolve dependencies.
    - Motion Usage Description
 
 3. Add URL Scheme for Strava OAuth:
-   - URL Schemes: `healthapp`
+   - URL Schemes: `netfuel`
 
 ---
 
@@ -95,7 +95,7 @@ Open `Config/Configuration.swift` and update the placeholder values.
 3. Sign in or create an account
 4. Click "New Project"
 5. Enter project details:
-   - Name: `health-tracker`
+   - Name: `netfuel`
    - Database Password: (generate a strong password)
    - Region: Choose closest to you
 6. Click "Create new project"
@@ -159,12 +159,12 @@ USING (bucket_id = 'progress-photos' AND auth.uid()::text = (storage.foldername(
 1. Go to [strava.com/settings/api](https://www.strava.com/settings/api)
 2. Sign in with your Strava account
 3. Fill in the application details:
-   - **Application Name**: Health Tracker
+   - **Application Name**: Netfuel
    - **Category**: Health and Fitness
    - **Club**: (leave blank)
    - **Website**: Your website or `http://localhost`
    - **Application Description**: iOS calorie tracking app
-   - **Authorization Callback Domain**: `healthapp` (no http://)
+   - **Authorization Callback Domain**: `netfuel` (no http://)
 4. Agree to terms and click "Create"
 
 ### Step 2: Get API Credentials
@@ -183,13 +183,13 @@ enum Strava {
 
 ### Step 3: Configure OAuth Redirect
 
-The app is already configured to handle the redirect URI: `healthapp://strava/callback`
+The app is already configured to handle the redirect URI: `netfuel://strava/callback`
 
 Make sure your Xcode project has the URL scheme set up:
 1. Select your project in Xcode
 2. Go to **Info** tab
 3. Expand **URL Types**
-4. Verify `healthapp` is listed
+4. Verify `netfuel` is listed
 
 ---
 

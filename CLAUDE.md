@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Health Tracker is an iOS calorie tracking app built with SwiftUI and Supabase. It integrates with Strava for activity syncing and USDA FoodData Central for nutrition database. The app tracks food intake, exercise calories, and calculates BMR/TDEE for comprehensive calorie management.
+Netfuel is an iOS calorie tracking app built with SwiftUI and Supabase. It integrates with Strava for activity syncing and USDA FoodData Central for nutrition database. The app tracks food intake, exercise calories, and calculates BMR/TDEE for comprehensive calorie management.
 
 **Key Technologies:**
 - iOS 16+, SwiftUI
@@ -18,14 +18,14 @@ Health Tracker is an iOS calorie tracking app built with SwiftUI and Supabase. I
 ### Build & Run
 ```bash
 # Open project in Xcode
-open "Healthapp/Healthapp.xcodeproj"
+open "Netfuel/Netfuel.xcodeproj"
 
 # Build via command line
-cd Healthapp
-xcodebuild -project Healthapp.xcodeproj -scheme Healthapp -destination 'platform=iOS Simulator,name=iPhone 15' build
+cd Netfuel
+xcodebuild -project Netfuel.xcodeproj -scheme Netfuel -destination 'platform=iOS Simulator,name=iPhone 15' build
 
 # Clean build
-xcodebuild clean -project Healthapp.xcodeproj -scheme Healthapp
+xcodebuild clean -project Netfuel.xcodeproj -scheme Netfuel
 ```
 
 ### Dependencies
@@ -48,7 +48,7 @@ swift package update
 ## Architecture
 
 ### Project Structure
-The actual implementation is in `Healthapp/Healthapp/` directory (note the nested structure):
+The actual implementation is in `Netfuel/Netfuel/` directory (note the nested structure):
 - **Config/** - API keys and configuration (Configuration.swift)
 - **Models/** - Data models (User, FoodEntry, Activity, DailySummary, etc.)
 - **Views/** - SwiftUI views (HomeView, ProfileView, AddFoodView, etc.)
@@ -57,7 +57,7 @@ The actual implementation is in `Healthapp/Healthapp/` directory (note the neste
 - **Services/** - Business logic and API integration
 - **Utilities/** - Extensions and helpers
 
-Root directory contains documentation and old placeholder files (Package.swift, HealthApp.swift in root are NOT used).
+Root directory contains documentation and old placeholder files (Package.swift, NetfuelApp.swift in root are NOT used).
 
 ### Data Flow Pattern
 All data operations follow this pattern:

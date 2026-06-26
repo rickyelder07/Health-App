@@ -1,15 +1,19 @@
--- Health Tracker Database Schema (Safe Version)
--- Migration: 001_initial_schema_safe
--- Description: Initial database setup - safe to run multiple times
+-- Netfuel Database Schema
+-- Consolidates: 001_initial_schema_safe, 003_add_user_name, 004_add_missing_schema,
+--               005_add_food_log_references, 009_add_thumbnail_url
+-- Safe to re-run (idempotent).
+--
+-- NOTE: progress_photos uses `taken_at` (not `date_taken`) to match the iOS model.
 
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =====================================================
--- USERS TABLE (extends auth.users)
+-- USERS
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT,
     weight DECIMAL(5,2),
     height DECIMAL(5,2),
     age INTEGER CHECK (age > 0 AND age < 150),
@@ -21,39 +25,32 @@ CREATE TABLE IF NOT EXISTS public.users (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Create index only if column exists
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'updated_at') THEN
-        CREATE INDEX IF NOT EXISTS idx_users_updated_at ON public.users(updated_at);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_users_updated_at ON public.users(updated_at);
 
 -- =====================================================
--- PROGRESS PHOTOS TABLE
+-- PROGRESS PHOTOS
+-- (uses taken_at, not date_taken — matches iOS ProgressPhoto model)
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.progress_photos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     photo_url TEXT NOT NULL,
+    thumbnail_url TEXT,
     weight DECIMAL(5,2),
-    date_taken TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Create indexes only if columns exist
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'progress_photos' AND column_name = 'user_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_progress_photos_user_id ON public.progress_photos(user_id);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'progress_photos' AND column_name = 'date_taken') THEN
-        CREATE INDEX IF NOT EXISTS idx_progress_photos_date_taken ON public.progress_photos(user_id, date_taken DESC);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_progress_photos_user_id ON public.progress_photos(user_id);
+CREATE INDEX IF NOT EXISTS idx_progress_photos_taken_at ON public.progress_photos(user_id, taken_at DESC);
 
 -- =====================================================
--- STRAVA CONNECTIONS TABLE
+-- STRAVA CONNECTIONS
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.strava_connections (
     user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     access_token TEXT NOT NULL,
@@ -67,16 +64,12 @@ CREATE TABLE IF NOT EXISTS public.strava_connections (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Create index only if column exists
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'strava_connections' AND column_name = 'athlete_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_strava_connections_athlete_id ON public.strava_connections(athlete_id);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_strava_connections_athlete_id ON public.strava_connections(athlete_id);
 
 -- =====================================================
--- ACTIVITIES TABLE
+-- ACTIVITIES
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.activities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -95,22 +88,14 @@ CREATE TABLE IF NOT EXISTS public.activities (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Create indexes only if columns exist
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'activities' AND column_name = 'user_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_activities_user_id ON public.activities(user_id);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'activities' AND column_name = 'start_date') THEN
-        CREATE INDEX IF NOT EXISTS idx_activities_start_date ON public.activities(user_id, start_date DESC);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'activities' AND column_name = 'strava_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_activities_strava_id ON public.activities(strava_id);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_activities_user_id ON public.activities(user_id);
+CREATE INDEX IF NOT EXISTS idx_activities_start_date ON public.activities(user_id, start_date DESC);
+CREATE INDEX IF NOT EXISTS idx_activities_strava_id ON public.activities(strava_id);
 
 -- =====================================================
--- FOOD LOGS TABLE
+-- FOOD LOGS
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.food_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -128,27 +113,20 @@ CREATE TABLE IF NOT EXISTS public.food_logs (
     servings DECIMAL(4,2) NOT NULL DEFAULT 1.0 CHECK (servings > 0),
     meal_type TEXT CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
     usda_fdc_id TEXT,
+    custom_food_id UUID,  -- FK added after custom_foods table below
+    custom_meal_id UUID,  -- FK added after custom_meals table below
     logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Create indexes only if columns exist
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'food_logs' AND column_name = 'user_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_food_logs_user_id ON public.food_logs(user_id);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'food_logs' AND column_name = 'logged_at') THEN
-        -- Index on logged_at is sufficient for date-based queries
-        CREATE INDEX IF NOT EXISTS idx_food_logs_logged_at ON public.food_logs(user_id, logged_at DESC);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'food_logs' AND column_name = 'meal_type') THEN
-        CREATE INDEX IF NOT EXISTS idx_food_logs_meal_type ON public.food_logs(user_id, meal_type);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_food_logs_user_id ON public.food_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_food_logs_logged_at ON public.food_logs(user_id, logged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_food_logs_meal_type ON public.food_logs(user_id, meal_type);
 
 -- =====================================================
--- DAILY SUMMARIES TABLE
+-- DAILY SUMMARIES
 -- =====================================================
+
 CREATE TABLE IF NOT EXISTS public.daily_summaries (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     date DATE NOT NULL,
@@ -161,23 +139,95 @@ CREATE TABLE IF NOT EXISTS public.daily_summaries (
     calories_burned_exercise INTEGER NOT NULL DEFAULT 0,
     total_calories_burned INTEGER GENERATED ALWAYS AS (calories_burned_bmr + calories_burned_exercise) STORED,
     net_calories INTEGER GENERATED ALWAYS AS (calories_consumed - (calories_burned_bmr + calories_burned_exercise)) STORED,
+    calorie_goal INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     PRIMARY KEY (user_id, date)
 );
 
--- Create indexes only if columns exist
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'daily_summaries' AND column_name = 'date') THEN
-        CREATE INDEX IF NOT EXISTS idx_daily_summaries_date ON public.daily_summaries(user_id, date DESC);
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'daily_summaries' AND column_name = 'updated_at') THEN
-        CREATE INDEX IF NOT EXISTS idx_daily_summaries_updated_at ON public.daily_summaries(updated_at);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_daily_summaries_date ON public.daily_summaries(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_summaries_updated_at ON public.daily_summaries(updated_at);
 
 -- =====================================================
--- FUNCTIONS
+-- CUSTOM FOODS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS public.custom_foods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    brand TEXT,
+    calories INTEGER NOT NULL,
+    protein DECIMAL(8,2) NOT NULL DEFAULT 0,
+    carbs DECIMAL(8,2) NOT NULL DEFAULT 0,
+    fat DECIMAL(8,2) NOT NULL DEFAULT 0,
+    fiber DECIMAL(8,2),
+    sugar DECIMAL(8,2),
+    sodium DECIMAL(8,2),
+    serving_size TEXT NOT NULL,
+    serving_unit TEXT NOT NULL,
+    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_foods_user_id ON public.custom_foods(user_id);
+CREATE INDEX IF NOT EXISTS idx_custom_foods_is_favorite ON public.custom_foods(user_id, is_favorite);
+
+-- =====================================================
+-- CUSTOM MEALS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS public.custom_meals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    total_calories INTEGER NOT NULL DEFAULT 0,
+    total_protein DECIMAL(8,2) NOT NULL DEFAULT 0,
+    total_carbs DECIMAL(8,2) NOT NULL DEFAULT 0,
+    total_fat DECIMAL(8,2) NOT NULL DEFAULT 0,
+    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_meal_foods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    meal_id UUID NOT NULL REFERENCES public.custom_meals(id) ON DELETE CASCADE,
+    custom_food_id UUID REFERENCES public.custom_foods(id) ON DELETE SET NULL,
+    usda_fdc_id TEXT,
+    food_name TEXT NOT NULL,
+    brand_name TEXT,
+    quantity DECIMAL(8,2) NOT NULL DEFAULT 1,
+    serving_size TEXT NOT NULL,
+    serving_unit TEXT NOT NULL,
+    calories INTEGER NOT NULL DEFAULT 0,
+    protein DECIMAL(8,2) NOT NULL DEFAULT 0,
+    carbs DECIMAL(8,2) NOT NULL DEFAULT 0,
+    fat DECIMAL(8,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT check_food_source CHECK (
+        (custom_food_id IS NOT NULL AND usda_fdc_id IS NULL) OR
+        (custom_food_id IS NULL AND usda_fdc_id IS NOT NULL) OR
+        (custom_food_id IS NULL AND usda_fdc_id IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_meals_user_id ON public.custom_meals(user_id);
+CREATE INDEX IF NOT EXISTS idx_custom_meal_foods_meal_id ON public.custom_meal_foods(meal_id);
+
+-- Add FKs to food_logs now that custom_foods/custom_meals exist
+ALTER TABLE public.food_logs
+    ADD COLUMN IF NOT EXISTS custom_food_id UUID REFERENCES public.custom_foods(id) ON DELETE SET NULL;
+ALTER TABLE public.food_logs
+    ADD COLUMN IF NOT EXISTS custom_meal_id UUID REFERENCES public.custom_meals(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_food_logs_custom_food_id ON public.food_logs(custom_food_id) WHERE custom_food_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_food_logs_custom_meal_id ON public.food_logs(custom_meal_id) WHERE custom_meal_id IS NOT NULL;
+
+-- =====================================================
+-- SHARED FUNCTIONS
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -198,21 +248,61 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION update_custom_meal_totals()
+RETURNS TRIGGER AS $$
+DECLARE
+    target_meal_id UUID;
+BEGIN
+    target_meal_id := COALESCE(NEW.meal_id, OLD.meal_id);
+    UPDATE public.custom_meals SET
+        total_calories = (SELECT COALESCE(SUM(calories), 0) FROM public.custom_meal_foods WHERE meal_id = target_meal_id),
+        total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM public.custom_meal_foods WHERE meal_id = target_meal_id),
+        total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM public.custom_meal_foods WHERE meal_id = target_meal_id),
+        total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM public.custom_meal_foods WHERE meal_id = target_meal_id),
+        updated_at     = NOW()
+    WHERE id = target_meal_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =====================================================
 -- TRIGGERS
 -- =====================================================
 
 DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON public.users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_strava_connections_updated_at ON public.strava_connections;
-CREATE TRIGGER update_strava_connections_updated_at BEFORE UPDATE ON public.strava_connections
+CREATE TRIGGER update_strava_connections_updated_at
+    BEFORE UPDATE ON public.strava_connections
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_daily_summaries_updated_at ON public.daily_summaries;
-CREATE TRIGGER update_daily_summaries_updated_at BEFORE UPDATE ON public.daily_summaries
+CREATE TRIGGER update_daily_summaries_updated_at
+    BEFORE UPDATE ON public.daily_summaries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_progress_photos_updated_at ON public.progress_photos;
+CREATE TRIGGER update_progress_photos_updated_at
+    BEFORE UPDATE ON public.progress_photos
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_custom_foods_updated_at ON public.custom_foods;
+CREATE TRIGGER update_custom_foods_updated_at
+    BEFORE UPDATE ON public.custom_foods
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_custom_meals_updated_at ON public.custom_meals;
+CREATE TRIGGER update_custom_meals_updated_at
+    BEFORE UPDATE ON public.custom_meals
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS sync_custom_meal_totals ON public.custom_meal_foods;
+CREATE TRIGGER sync_custom_meal_totals
+    AFTER INSERT OR UPDATE OR DELETE ON public.custom_meal_foods
+    FOR EACH ROW EXECUTE FUNCTION update_custom_meal_totals();
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
@@ -229,8 +319,10 @@ ALTER TABLE public.strava_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.food_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_summaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_foods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_meals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_meal_foods ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist
 DO $$ BEGIN
     DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
     DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
@@ -255,10 +347,21 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users can insert own daily summaries" ON public.daily_summaries;
     DROP POLICY IF EXISTS "Users can update own daily summaries" ON public.daily_summaries;
     DROP POLICY IF EXISTS "Users can delete own daily summaries" ON public.daily_summaries;
+    DROP POLICY IF EXISTS "Users can view own custom foods" ON public.custom_foods;
+    DROP POLICY IF EXISTS "Users can insert own custom foods" ON public.custom_foods;
+    DROP POLICY IF EXISTS "Users can update own custom foods" ON public.custom_foods;
+    DROP POLICY IF EXISTS "Users can delete own custom foods" ON public.custom_foods;
+    DROP POLICY IF EXISTS "Users can view own custom meals" ON public.custom_meals;
+    DROP POLICY IF EXISTS "Users can insert own custom meals" ON public.custom_meals;
+    DROP POLICY IF EXISTS "Users can update own custom meals" ON public.custom_meals;
+    DROP POLICY IF EXISTS "Users can delete own custom meals" ON public.custom_meals;
+    DROP POLICY IF EXISTS "Users can view own meal foods" ON public.custom_meal_foods;
+    DROP POLICY IF EXISTS "Users can insert own meal foods" ON public.custom_meal_foods;
+    DROP POLICY IF EXISTS "Users can update own meal foods" ON public.custom_meal_foods;
+    DROP POLICY IF EXISTS "Users can delete own meal foods" ON public.custom_meal_foods;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
 
--- Create policies
 CREATE POLICY "Users can view own profile" ON public.users FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Allow trigger to insert users" ON public.users FOR INSERT WITH CHECK (true);
@@ -288,3 +391,25 @@ CREATE POLICY "Users can insert own daily summaries" ON public.daily_summaries F
 CREATE POLICY "Users can update own daily summaries" ON public.daily_summaries FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own daily summaries" ON public.daily_summaries FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view own custom foods" ON public.custom_foods FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own custom foods" ON public.custom_foods FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own custom foods" ON public.custom_foods FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own custom foods" ON public.custom_foods FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own custom meals" ON public.custom_meals FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own custom meals" ON public.custom_meals FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own custom meals" ON public.custom_meals FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own custom meals" ON public.custom_meals FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own meal foods" ON public.custom_meal_foods FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.custom_meals WHERE id = meal_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can insert own meal foods" ON public.custom_meal_foods FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.custom_meals WHERE id = meal_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can update own meal foods" ON public.custom_meal_foods FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.custom_meals WHERE id = meal_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can delete own meal foods" ON public.custom_meal_foods FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.custom_meals WHERE id = meal_id AND user_id = auth.uid())
+);

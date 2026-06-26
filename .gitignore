@@ -90,8 +90,13 @@ fastlane/test_output
 iOSInjectionProject/
 
 # Configuration with API keys
-# IMPORTANT: Protect your API keys
-Config/Configuration.swift
+# IMPORTANT: Protect your API keys - now using xcconfig files
+# Configuration.swift no longer contains secrets (reads from Info.plist)
+Config/Secrets.xcconfig
+*.xcconfig
+!*.template.xcconfig
+!Config/Debug.xcconfig
+!Config/Release.xcconfig
 
 # Environment variables
 .env

@@ -1,6 +1,6 @@
 # Supabase Database Setup
 
-This directory contains SQL migration scripts for the Health Tracker app database.
+This directory contains SQL migration scripts for the Netfuel app database.
 
 ## Migrations
 

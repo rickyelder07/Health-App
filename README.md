@@ -1,4 +1,4 @@
-# Health Tracker - Calorie Tracking iOS App
+# Netfuel - Calorie Tracking iOS App
 
 A comprehensive iOS calorie tracking app with Strava integration, built using Swift, SwiftUI, and Supabase.
 
@@ -26,8 +26,8 @@ A comprehensive iOS calorie tracking app with Strava integration, built using Sw
 ## Project Structure
 
 ```
-Health App/
-├── HealthApp.swift              # App entry point
+Netfuel/
+├── NetfuelApp.swift              # App entry point
 ├── AppState.swift               # Global app state management
 ├── ContentView.swift            # Root view
 │
@@ -89,7 +89,7 @@ Health App/
 ### 1. Clone the Repository
 
 ```bash
-cd "Health App"
+cd "Netfuel"
 ```
 
 ### 2. Configure API Keys
@@ -121,7 +121,7 @@ enum USDA {
 
 **Strava:**
 1. Register your app at [strava.com/settings/api](https://www.strava.com/settings/api)
-2. Set the Authorization Callback Domain to: `healthapp`
+2. Set the Authorization Callback Domain to: `netfuel`
 3. Copy the Client ID and Client Secret
 
 **USDA FoodData Central:**
@@ -147,8 +147,8 @@ swift package resolve
 1. In Xcode, select your project
 2. Go to Info tab
 3. Add URL Types with:
-   - Identifier: `com.healthapp.strava`
-   - URL Schemes: `healthapp`
+   - Identifier: `com.netfuel.strava`
+   - URL Schemes: `netfuel`
 
 ### 5. Set Up Supabase Database
 

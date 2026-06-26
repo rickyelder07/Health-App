@@ -5,9 +5,9 @@ This document provides a visual overview of the complete project structure and f
 ## Directory Tree
 
 ```
-Health App/
+Netfuel/
 │
-├── 📄 HealthApp.swift                    # Main app entry point (@main)
+├── 📄 NetfuelApp.swift                    # Main app entry point (@main)
 ├── 📄 AppState.swift                     # Global app state (authentication, current user)
 ├── 📄 ContentView.swift                  # Root view (auth vs main app routing)
 ├── 📄 Package.swift                      # Swift Package Manager configuration
@@ -68,7 +68,7 @@ Health App/
 
 | File | Purpose | Key Features |
 |------|---------|--------------|
-| `HealthApp.swift` | App entry point | SwiftUI App protocol, initializes Supabase, injects AppState |
+| `NetfuelApp.swift` | App entry point | SwiftUI App protocol, initializes Supabase, injects AppState |
 | `AppState.swift` | Global state | Authentication status, current user, sign out |
 | `ContentView.swift` | Root view | Routes between auth and main app based on state |
 | `Package.swift` | Dependencies | Supabase Swift SDK configuration |
