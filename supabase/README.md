@@ -4,8 +4,12 @@ This directory contains SQL migration scripts for the Netfuel app database.
 
 ## Migrations
 
-1. **001_initial_schema.sql** - Core database tables and RLS policies
-2. **002_helper_functions.sql** - Utility functions for calculations and automation
+Run these in order:
+
+1. **000_cleanup.sql** - Drops old objects if rebuilding from scratch (safe to skip on fresh DB)
+2. **001_schema.sql** - Core tables, indexes, and RLS policies
+3. **002_functions.sql** - Triggers, BMR/TDEE helpers, daily summary automation
+4. **003_storage.sql** - Storage bucket policies for `progress-photos`
 
 ## How to Apply Migrations
 
@@ -14,9 +18,9 @@ This directory contains SQL migration scripts for the Netfuel app database.
 1. Go to your Supabase project dashboard
 2. Navigate to **SQL Editor**
 3. Click **"New Query"**
-4. Copy the contents of `001_initial_schema.sql`
+4. Copy the contents of `001_schema.sql`
 5. Paste and click **"Run"**
-6. Repeat for `002_helper_functions.sql`
+6. Repeat for `002_functions.sql`, then `003_storage.sql`
 
 ### Option 2: Supabase CLI
 
@@ -37,12 +41,10 @@ supabase db push
 ### Option 3: Direct SQL Execution
 
 ```bash
-# Using psql (requires database connection string)
-psql "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres" \
-  -f migrations/001_initial_schema.sql
-
-psql "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres" \
-  -f migrations/002_helper_functions.sql
+DB="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
+psql "$DB" -f migrations/001_schema.sql
+psql "$DB" -f migrations/002_functions.sql
+psql "$DB" -f migrations/003_storage.sql
 ```
 
 ## Database Schema Overview
@@ -121,7 +123,7 @@ Run these SQL commands in the SQL Editor:
 CREATE POLICY "Users can upload own photos"
 ON storage.objects FOR INSERT
 WITH CHECK (
-    bucket_id = 'progress-photos' 
+    bucket_id = 'progress-photos'
     AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
@@ -129,7 +131,7 @@ WITH CHECK (
 CREATE POLICY "Users can view own photos"
 ON storage.objects FOR SELECT
 USING (
-    bucket_id = 'progress-photos' 
+    bucket_id = 'progress-photos'
     AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
@@ -137,7 +139,7 @@ USING (
 CREATE POLICY "Users can delete own photos"
 ON storage.objects FOR DELETE
 USING (
-    bucket_id = 'progress-photos' 
+    bucket_id = 'progress-photos'
     AND auth.uid()::text = (storage.foldername(name))[1]
 );
 ```
@@ -178,7 +180,7 @@ LIMIT 10;
 
 ### Calculate User's Current BMR
 ```sql
-SELECT 
+SELECT
     weight,
     height,
     age,
