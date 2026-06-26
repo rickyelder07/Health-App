@@ -26,11 +26,11 @@ class DayDetailViewModel: ObservableObject {
 
     private let userId: UUID
     private let date: Date
-    private let summaryService = DailySummaryService()
+    private let summaryService = DailySummaryService.shared
     private let foodService = FoodService()
     private let stravaService = StravaService()
     private let photoService = PhotoService()
-    private let profileService = ProfileService()
+    private let profileService = ProfileService.shared
 
     // MARK: - Initialization
 
@@ -64,24 +64,21 @@ class DayDetailViewModel: ObservableObject {
         await loadDayData()
     }
 
-    /// Update weight for this day
-    func updateWeight(_ newWeight: Double) async -> Bool {
+    /// Update weight for this day (weightKg must be in kg)
+    func updateWeight(_ weightKg: Double) async -> Bool {
         isLoading = true
         errorMessage = nil
 
         do {
-            // Update user's weight in profile
-            _ = try await profileService.updateWeight(userId: userId, weight: newWeight)
+            _ = try await profileService.updateWeight(userId: userId, weight: weightKg)
+            // Save to daily_summaries so calendar and analytics see it
+            try await summaryService.updateDailyWeight(userId: userId, date: date, weight: weightKg)
 
-            // Update the weight in the summary
-            weight = newWeight
+            weight = weightKg
             if var currentSummary = summary {
-                currentSummary.weight = newWeight
+                currentSummary.weight = weightKg
                 summary = currentSummary
             }
-
-            // Refresh data to get updated summary
-            await loadSummary()
 
             isLoading = false
             return true

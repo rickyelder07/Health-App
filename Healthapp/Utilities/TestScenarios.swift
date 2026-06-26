@@ -45,7 +45,7 @@ class TestScenarios {
 
         // Set up user settings
         var settings = UserSettings()
-        settings.calorieGoalSource = .tdee
+        settings.fitnessGoal = .maintenance
         settings.proteinTargetGrams = 150.0
         settings.carbsTargetGrams = 250.0
         settings.fatTargetGrams = 70.0

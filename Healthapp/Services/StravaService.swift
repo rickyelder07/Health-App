@@ -43,7 +43,7 @@ class StravaService {
             }
         }
     }
-    
+
     /// Build the Strava authorization URL
     private func buildAuthorizationURL(userId: UUID) -> String {
         let scope = "activity:read_all,profile:read_all"
@@ -70,7 +70,7 @@ class StravaService {
         print("🔗 Full authorization URL: \(authUrl)")
         return authUrl
     }
-    
+
     /// Exchange authorization code for access token
     /// - Parameters:
     ///   - code: Authorization code from Strava
@@ -79,26 +79,26 @@ class StravaService {
     /// - Throws: Error if exchange fails
     func exchangeToken(code: String, userId: UUID) async throws -> StravaConnection {
         let tokenUrl = URL(string: Configuration.Strava.tokenUrl)!
-        
+
         var request = URLRequest(url: tokenUrl)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body: [String: Any] = [
             "client_id": Configuration.Strava.clientId,
             "client_secret": Configuration.Strava.clientSecret,
             "code": code,
             "grant_type": "authorization_code"
         ]
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw StravaError.invalidResponse
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             print("❌ Strava token exchange failed with status: \(httpResponse.statusCode)")
             if let jsonString = String(data: data, encoding: .utf8) {
@@ -106,53 +106,53 @@ class StravaService {
             }
             throw StravaError.tokenExchangeFailed(httpResponse.statusCode)
         }
-        
+
         let tokenResponse = try JSONDecoder().decode(StravaTokenResponse.self, from: data)
         print("✅ Strava token exchange successful")
-        
+
         // Store connection in Supabase
         return try await storeConnection(tokenResponse: tokenResponse, userId: userId)
     }
-    
+
     /// Refresh expired access token
     /// - Parameter connection: Existing Strava connection
     /// - Returns: Updated connection with new tokens
     /// - Throws: Error if refresh fails
     func refreshToken(connection: StravaConnection) async throws -> StravaConnection {
         let tokenUrl = URL(string: Configuration.Strava.tokenUrl)!
-        
+
         var request = URLRequest(url: tokenUrl)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body: [String: Any] = [
             "client_id": Configuration.Strava.clientId,
             "client_secret": Configuration.Strava.clientSecret,
             "refresh_token": connection.refreshToken,
             "grant_type": "refresh_token"
         ]
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw StravaError.tokenRefreshFailed
         }
-        
+
         let tokenResponse = try JSONDecoder().decode(StravaRefreshResponse.self, from: data)
         print("✅ Strava token refreshed")
-        
+
         // Update connection in Supabase
         return try await updateConnection(userId: connection.userId, tokenResponse: tokenResponse)
     }
-    
+
     // MARK: - Connection Management
-    
+
     /// Store Strava connection in Supabase
     private func storeConnection(tokenResponse: StravaTokenResponse, userId: UUID) async throws -> StravaConnection {
         let expiresAt = Date(timeIntervalSince1970: TimeInterval(tokenResponse.expiresAt))
-        
+
         let connectionRequest = StravaConnectionRequest(
             userId: userId.uuidString,
             accessToken: tokenResponse.accessToken,
@@ -164,33 +164,33 @@ class StravaService {
             athleteLastname: tokenResponse.athlete.lastname ?? "",
             updatedAt: ISO8601DateFormatter().string(from: Date())
         )
-        
+
         let response = try await supabase.client
             .from("strava_connections")
             .upsert(connectionRequest)
             .select()
             .single()
             .execute()
-        
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let connection = try decoder.decode(StravaConnection.self, from: response.data)
-        
+
         print("✅ Strava connection stored for user: \(userId)")
         return connection
     }
-    
+
     /// Update Strava connection with new tokens
     private func updateConnection(userId: UUID, tokenResponse: StravaRefreshResponse) async throws -> StravaConnection {
         let expiresAt = Date(timeIntervalSince1970: TimeInterval(tokenResponse.expiresAt))
-        
+
         let updateRequest = StravaConnectionUpdateRequest(
             accessToken: tokenResponse.accessToken,
             refreshToken: tokenResponse.refreshToken,
             expiresAt: ISO8601DateFormatter().string(from: expiresAt),
             updatedAt: ISO8601DateFormatter().string(from: Date())
         )
-        
+
         let response = try await supabase.client
             .from("strava_connections")
             .update(updateRequest)
@@ -198,15 +198,15 @@ class StravaService {
             .select()
             .single()
             .execute()
-        
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let connection = try decoder.decode(StravaConnection.self, from: response.data)
-        
+
         print("✅ Strava connection updated for user: \(userId)")
         return connection
     }
-    
+
     /// Fetch Strava connection for user
     /// - Parameter userId: User's ID
     /// - Returns: Strava connection if exists
@@ -219,21 +219,21 @@ class StravaService {
                 .eq("user_id", value: userId.uuidString)
                 .single()
                 .execute()
-            
+
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let connection = try decoder.decode(StravaConnection.self, from: response.data)
-            
+
             print("✅ Strava connection fetched for user: \(userId)")
             return connection
-            
+
         } catch {
             // No connection found is not an error
             print("ℹ️ No Strava connection found for user: \(userId)")
             return nil
         }
     }
-    
+
     /// Disconnect Strava (delete connection)
     /// - Parameter userId: User's ID
     /// - Throws: Error if deletion fails
@@ -243,12 +243,12 @@ class StravaService {
             .delete()
             .eq("user_id", value: userId.uuidString)
             .execute()
-        
+
         print("✅ Strava disconnected for user: \(userId)")
     }
-    
+
     // MARK: - Activity Syncing
-    
+
     /// Fetch activities from Strava API
     /// - Parameters:
     ///   - connection: Strava connection with valid access token
@@ -263,36 +263,36 @@ class StravaService {
             print("🔄 Token expired, refreshing...")
             activeConnection = try await refreshToken(connection: connection)
         }
-        
+
         let urlString = "\(Configuration.Strava.apiBaseUrl)/athlete/activities?page=\(page)&per_page=\(perPage)"
         guard let url = URL(string: urlString) else {
             throw StravaError.invalidURL
         }
-        
+
         var request = URLRequest(url: url)
         request.setValue("Bearer \(activeConnection.accessToken)", forHTTPHeaderField: "Authorization")
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw StravaError.invalidResponse
         }
-        
+
         // Handle rate limiting
         if httpResponse.statusCode == 429 {
             throw StravaError.rateLimitExceeded
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             throw StravaError.apiError(httpResponse.statusCode)
         }
-        
+
         let activities = try JSONDecoder().decode([StravaActivityResponse].self, from: data)
         print("✅ Fetched \(activities.count) activities from Strava")
-        
+
         return activities
     }
-    
+
     /// Sync activities from Strava to Supabase
     /// - Parameters:
     ///   - userId: User's ID
@@ -301,16 +301,16 @@ class StravaService {
     /// - Throws: Error if sync fails
     func syncActivities(userId: UUID, connection: StravaConnection) async throws -> Int {
         let stravaActivities = try await fetchActivitiesFromStrava(connection: connection)
-        
+
         var syncedCount = 0
         var affectedDates = Set<Date>()
         let calendar = Calendar.current
-        
+
         for stravaActivity in stravaActivities {
             do {
                 try await storeActivity(userId: userId, stravaActivity: stravaActivity)
                 syncedCount += 1
-                
+
                 // Track the date for daily summary update
                 let activityDate = calendar.startOfDay(for: stravaActivity.startDate)
                 affectedDates.insert(activityDate)
@@ -319,25 +319,24 @@ class StravaService {
                 // Continue with next activity
             }
         }
-        
+
         print("✅ Synced \(syncedCount) activities to database")
-        
+
         // Update daily summaries for all affected dates
         if !affectedDates.isEmpty {
             print("📊 Updating daily summaries for \(affectedDates.count) date(s)")
-            let summaryService = DailySummaryService()
             for date in affectedDates {
                 do {
-                    try await summaryService.updateExerciseCalories(userId: userId, date: date)
+                    try await DailySummaryService.shared.updateExerciseCalories(userId: userId, date: date)
                 } catch {
                     print("❌ Failed to update daily summary for \(date): \(error)")
                 }
             }
         }
-        
+
         return syncedCount
     }
-    
+
     /// Store or update activity in Supabase
     private func storeActivity(userId: UUID, stravaActivity: StravaActivityResponse) async throws {
         let activityRequest = ActivityRequest(
@@ -355,14 +354,14 @@ class StravaService {
             maxHeartrate: stravaActivity.maxHeartrate,
             elevationGain: stravaActivity.totalElevationGain
         )
-        
+
         // Upsert based on user_id and strava_id
         _ = try await supabase.client
             .from("activities")
             .upsert(activityRequest)
             .execute()
     }
-    
+
     /// Fetch activities from Supabase for user
     /// - Parameter userId: User's ID
     /// - Returns: Array of activities
@@ -407,17 +406,17 @@ class StravaService {
         print("✅ Fetched \(activities.count) activities from database for date range")
         return activities
     }
-    
+
     // MARK: - Helper Methods
-    
+
     /// Estimate calories if not provided by Strava
     private func estimateCalories(activity: StravaActivityResponse) -> Int {
         // Rough estimate: 50 calories per km for running, 30 for cycling
         guard let distance = activity.distance else { return 0 }
-        
+
         let km = distance / 1000
         let caloriesPerKm: Double
-        
+
         switch activity.type.lowercased() {
         case "run", "trail run", "virtual run":
             caloriesPerKm = 50
@@ -428,7 +427,7 @@ class StravaService {
         default:
             caloriesPerKm = 40
         }
-        
+
         return Int(km * caloriesPerKm)
     }
 }
@@ -440,7 +439,7 @@ private struct StravaRefreshResponse: Codable {
     let accessToken: String
     let refreshToken: String
     let expiresAt: Int
-    
+
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
@@ -463,7 +462,7 @@ struct StravaActivityResponse: Codable {
     let averageHeartrate: Double?
     let maxHeartrate: Int?
     let calories: Int?
-    
+
     enum CodingKeys: String, CodingKey {
         case id, name, type, distance, calories
         case startDate = "start_date"
@@ -475,18 +474,18 @@ struct StravaActivityResponse: Codable {
         case averageHeartrate = "average_heartrate"
         case maxHeartrate = "max_heartrate"
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(Int64.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         type = try container.decode(String.self, forKey: .type)
-        
+
         // Parse ISO8601 date string
         let dateString = try container.decode(String.self, forKey: .startDate)
         let formatter = ISO8601DateFormatter()
         startDate = formatter.date(from: dateString) ?? Date()
-        
+
         distance = try container.decodeIfPresent(Double.self, forKey: .distance)
         movingTime = try container.decode(Int.self, forKey: .movingTime)
         elapsedTime = try container.decode(Int.self, forKey: .elapsedTime)
@@ -510,7 +509,7 @@ private struct StravaConnectionRequest: Codable {
     let athleteFirstname: String
     let athleteLastname: String
     let updatedAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case accessToken = "access_token"
@@ -530,7 +529,7 @@ private struct StravaConnectionUpdateRequest: Codable {
     let refreshToken: String
     let expiresAt: String
     let updatedAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
@@ -554,7 +553,7 @@ private struct ActivityRequest: Codable {
     let averageHeartrate: Double?
     let maxHeartrate: Int?
     let elevationGain: Double?
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case stravaId = "strava_id"
@@ -579,7 +578,7 @@ enum StravaError: LocalizedError {
     case rateLimitExceeded
     case apiError(Int)
     case noConnection
-    
+
     var errorDescription: String? {
         switch self {
         case .invalidURL:

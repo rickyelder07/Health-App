@@ -20,6 +20,9 @@ class OnboardingViewModel: ObservableObject {
     @Published var permissionsGranted: Bool = false
     @Published var shouldDismiss: Bool = false
 
+    // Set after profile save so GoalsSetupPageView can show TDEE-derived targets
+    @Published var userTDEE: Int = 0
+
     // MARK: - Computed Properties
 
     /// Current page index
@@ -36,7 +39,6 @@ class OnboardingViewModel: ObservableObject {
     var canGoNext: Bool {
         switch currentPage {
         case .profileSetup:
-            // Can only proceed if profile is complete
             return isProfileSetupComplete
         default:
             return currentPageIndex < totalPages - 1

@@ -111,7 +111,7 @@ private struct NetCalorieChart: View {
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
             }
             .chartXAxis {
-                AxisMarks(values: .automatic) { _ in
+                AxisMarks(values: dataPoints.map(\.date)) { _ in
                     AxisGridLine()
                     AxisValueLabel(format: .dateTime.month().day())
                 }

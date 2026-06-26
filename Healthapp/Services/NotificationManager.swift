@@ -309,11 +309,25 @@ class NotificationManager {
             options: []
         )
 
+        // Meal Reminder category
+        let logMealAction = UNNotificationAction(
+            identifier: "LOG_MEAL",
+            title: "Log Now",
+            options: [.foreground]
+        )
+        let mealReminderCategory = UNNotificationCategory(
+            identifier: "MEAL_REMINDER",
+            actions: [logMealAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
         // Register categories
         center.setNotificationCategories([
             dailyLoggingCategory,
             stravaSyncCategory,
-            weeklySummaryCategory
+            weeklySummaryCategory,
+            mealReminderCategory
         ])
     }
 
@@ -341,8 +355,113 @@ class NotificationManager {
         print("🔕 All notifications canceled")
     }
 
+    // MARK: - Meal Reminders
+
+    /// Schedule smart meal reminders for the next 7 days.
+    /// Each notification has a per-day identifier so individual days can be cancelled when food is logged.
+    func scheduleMealReminders() {
+        cancelAllMealReminders()
+        let prefs = preferences
+        let now = Date()
+        let cal = Calendar.current
+
+        let meals: [(MealType, Bool, Date)] = [
+            (.breakfast, prefs.breakfastReminderEnabled, prefs.breakfastTime),
+            (.lunch,     prefs.lunchReminderEnabled,     prefs.lunchTime),
+            (.dinner,    prefs.dinnerReminderEnabled,    prefs.dinnerTime),
+        ]
+
+        for dayOffset in 0..<7 {
+            guard let day = cal.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            for (meal, enabled, mealTime) in meals {
+                guard enabled else { continue }
+                let hour = cal.component(.hour, from: mealTime)
+                let minute = cal.component(.minute, from: mealTime)
+                guard let fireDate = cal.date(bySettingHour: hour, minute: minute, second: 0, of: day),
+                      fireDate > now else { continue }
+
+                let content = UNMutableNotificationContent()
+                let (title, body) = mealPromptMessage(for: meal, date: day)
+                content.title = title
+                content.body = body
+                content.sound = .default
+                content.categoryIdentifier = "MEAL_REMINDER"
+                content.userInfo = ["type": "meal_reminder", "meal": meal.rawValue]
+
+                let components = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let request = UNNotificationRequest(
+                    identifier: mealNotificationId(meal, date: day),
+                    content: content,
+                    trigger: trigger
+                )
+                center.add(request) { error in
+                    if let error = error {
+                        print("❌ Failed to schedule \(meal.rawValue) reminder: \(error)")
+                    }
+                }
+            }
+        }
+        print("✅ Meal reminders scheduled for next 7 days")
+    }
+
+    /// Cancel the meal reminder for a specific meal on a specific date (call after food is logged).
+    func cancelMealNotification(meal: MealType, date: Date) {
+        center.removePendingNotificationRequests(withIdentifiers: [mealNotificationId(meal, date: date)])
+    }
+
+    /// Cancel all pending meal reminders.
+    func cancelAllMealReminders() {
+        let cal = Calendar.current
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+
+        var ids: [String] = []
+        for dayOffset in 0..<14 {
+            guard let day = cal.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            let key = formatter.string(from: day)
+            for meal in [MealType.breakfast, .lunch, .dinner] {
+                ids.append("netfuel.meal.\(meal.rawValue).\(key)")
+            }
+        }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
+    private func mealNotificationId(_ meal: MealType, date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let key = formatter.string(from: Calendar.current.startOfDay(for: date))
+        return "netfuel.meal.\(meal.rawValue).\(key)"
+    }
+
+    private func mealPromptMessage(for meal: MealType, date: Date) -> (String, String) {
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 0
+        let messages: [MealType: [(String, String)]] = [
+            .breakfast: [
+                ("Have you logged breakfast? 🌅", "Starting your day with tracking sets you up for success!"),
+                ("Breakfast check-in!", "Don't forget to log your morning meal — every bite counts toward your goals."),
+                ("Good morning! ☀️", "Have you eaten breakfast? Log it now to stay on track 💪"),
+            ],
+            .lunch: [
+                ("Time to log lunch! 🥗", "Have you eaten lunch? Logging keeps you honest with your goals."),
+                ("Lunch check-in!", "Don't let midday slip by — log what you ate to stay on target."),
+                ("Halfway through the day!", "Have you logged lunch yet? Consistent tracking = consistent results 🎯"),
+            ],
+            .dinner: [
+                ("Dinner time! 🍽️", "Have you logged your dinner? Finish the day strong!"),
+                ("Evening check-in!", "Don't forget dinner — logging every meal helps you hit your goals."),
+                ("Almost done for the day! 🌟", "Have you logged dinner? You're so close to a fully tracked day."),
+            ],
+        ]
+        let options = messages[meal] ?? [("Log your meal!", "Don't forget to track what you ate.")]
+        return options[dayOfYear % options.count]
+    }
+
     /// Reschedule all active notifications based on current preferences
     func rescheduleAllNotifications() {
+        scheduleMealReminders()
+
         if preferences.dailyLoggingReminderEnabled {
             scheduleDailyLoggingReminder(at: preferences.dailyLoggingTime)
         }
@@ -417,6 +536,23 @@ struct NotificationPreferences: Codable {
         components.hour = 20  // 8 PM default
         components.minute = 0
         return Calendar.current.date(from: components) ?? Date()
+    }()
+
+    // Meal Reminders
+    var breakfastReminderEnabled: Bool = true
+    var breakfastTime: Date = {
+        var c = DateComponents(); c.hour = 9; c.minute = 0
+        return Calendar.current.date(from: c) ?? Date()
+    }()
+    var lunchReminderEnabled: Bool = true
+    var lunchTime: Date = {
+        var c = DateComponents(); c.hour = 13; c.minute = 0
+        return Calendar.current.date(from: c) ?? Date()
+    }()
+    var dinnerReminderEnabled: Bool = true
+    var dinnerTime: Date = {
+        var c = DateComponents(); c.hour = 19; c.minute = 30
+        return Calendar.current.date(from: c) ?? Date()
     }()
 
     // Strava Sync Reminder

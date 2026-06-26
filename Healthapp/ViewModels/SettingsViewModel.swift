@@ -27,7 +27,7 @@ class SettingsViewModel: ObservableObject {
     // MARK: - Private Properties
 
     private let userId: UUID
-    private let profileService = ProfileService()
+    private let profileService = ProfileService.shared
     private let stravaService = StravaService()
     private let authService = AuthenticationService()
 
@@ -275,8 +275,8 @@ class SettingsViewModel: ObservableObject {
         Int(user?.tdee ?? user?.calculateTDEE() ?? 0)
     }
 
-    /// Effective calorie target (custom or TDEE)
+    /// Effective calorie target based on fitness goal
     var effectiveCalorieTarget: Int {
-        settings.dailyCalorieTarget ?? calculatedTDEE
+        settings.effectiveCalorieTarget(tdee: calculatedTDEE)
     }
 }

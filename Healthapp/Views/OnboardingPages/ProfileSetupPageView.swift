@@ -132,6 +132,9 @@ struct ProfileSetupPageView: View {
 
     private func saveProfile() async {
         await profileViewModel.createProfile()
+        if let tdee = profileViewModel.calculatedTDEE {
+            onboardingViewModel.userTDEE = Int(tdee)
+        }
     }
 
     // MARK: - View Components

@@ -132,7 +132,7 @@ private struct WeightChart: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic) { _ in
+                AxisMarks(values: dataPoints.map(\.date)) { _ in
                     AxisGridLine()
                     AxisValueLabel(format: .dateTime.month().day())
                 }

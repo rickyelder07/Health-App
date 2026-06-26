@@ -11,30 +11,30 @@ import SwiftUI
 struct CreateCustomMealView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: FoodViewModel
-    
+
     // Edit mode
     let editingMeal: CustomMeal?
-    
+
     // Form fields
     @State private var name: String = ""
     @State private var description: String = ""
     @State private var isFavorite: Bool = false
-    
+
     // Meal composition
     @State private var mealFoods: [CustomMealFood] = []
     @State private var mealId: UUID?
-    
+
     // UI State
     @State private var showingFoodSearch = false
     @State private var showingValidationError = false
     @State private var validationMessage = ""
     @State private var isEditingQuantity: CustomMealFood?
     @State private var editingQuantityValue: String = ""
-    
+
     init(viewModel: FoodViewModel, editingMeal: CustomMeal? = nil) {
         self.viewModel = viewModel
         self.editingMeal = editingMeal
-        
+
         if let meal = editingMeal {
             _name = State(initialValue: meal.name)
             _description = State(initialValue: meal.description ?? "")
@@ -42,24 +42,24 @@ struct CreateCustomMealView: View {
             _mealId = State(initialValue: meal.id)
         }
     }
-    
+
     // Computed totals
     private var totalCalories: Int {
         mealFoods.reduce(0) { $0 + $1.calories }
     }
-    
+
     private var totalProtein: Double {
         mealFoods.reduce(0.0) { $0 + $1.protein }
     }
-    
+
     private var totalCarbs: Double {
         mealFoods.reduce(0.0) { $0 + $1.carbs }
     }
-    
+
     private var totalFat: Double {
         mealFoods.reduce(0.0) { $0 + $1.fat }
     }
-    
+
     var body: some View {
         NavigationView {
             Form {
@@ -67,12 +67,12 @@ struct CreateCustomMealView: View {
                 Section("Meal Information") {
                     TextField("Meal Name *", text: $name)
                         .autocorrectionDisabled()
-                    
+
                     TextField("Description (optional)", text: $description, axis: .vertical)
                         .lineLimit(3...5)
                         .autocorrectionDisabled()
                 }
-                
+
                 // Foods in Meal
                 Section {
                     if mealFoods.isEmpty {
@@ -80,11 +80,11 @@ struct CreateCustomMealView: View {
                             Image(systemName: "fork.knife")
                                 .font(.system(size: 40))
                                 .foregroundColor(.secondary)
-                            
+
                             Text("No foods added yet")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                            
+
                             Button {
                                 showingFoodSearch = true
                             } label: {
@@ -107,7 +107,7 @@ struct CreateCustomMealView: View {
                                 }
                             )
                         }
-                        
+
                         Button {
                             showingFoodSearch = true
                         } label: {
@@ -117,7 +117,7 @@ struct CreateCustomMealView: View {
                 } header: {
                     Text("Foods (\(mealFoods.count))")
                 }
-                
+
                 // Total Nutrition
                 if !mealFoods.isEmpty {
                     Section("Total Nutrition") {
@@ -128,7 +128,7 @@ struct CreateCustomMealView: View {
                             Text("\(totalCalories) cal")
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         HStack {
                             HStack(spacing: 4) {
                                 Image(systemName: "flame.fill")
@@ -139,7 +139,7 @@ struct CreateCustomMealView: View {
                             Text(String(format: "%.1f g", totalProtein))
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         HStack {
                             HStack(spacing: 4) {
                                 Image(systemName: "leaf.fill")
@@ -150,7 +150,7 @@ struct CreateCustomMealView: View {
                             Text(String(format: "%.1f g", totalCarbs))
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         HStack {
                             HStack(spacing: 4) {
                                 Image(systemName: "drop.fill")
@@ -163,7 +163,7 @@ struct CreateCustomMealView: View {
                         }
                     }
                 }
-                
+
                 // Favorite Toggle
                 Section {
                     Toggle(isOn: $isFavorite) {
@@ -174,7 +174,7 @@ struct CreateCustomMealView: View {
                         }
                     }
                 }
-                
+
                 // Help Text
                 Section {
                     Text("* Required fields")
@@ -190,7 +190,7 @@ struct CreateCustomMealView: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button(editingMeal == nil ? "Save" : "Update") {
                         saveMeal()
@@ -240,14 +240,14 @@ struct CreateCustomMealView: View {
             }
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func loadMealFoods(mealId: UUID) async {
         await viewModel.loadMealFoods(mealId: mealId)
         mealFoods = viewModel.selectedMealFoods
     }
-    
+
     private func addFoodToMeal(_ food: FoodItem) {
         let newMealFood = CustomMealFood(
             id: UUID(),
@@ -265,19 +265,19 @@ struct CreateCustomMealView: View {
             fat: food.fat,
             createdAt: Date()
         )
-        
+
         mealFoods.append(newMealFood)
     }
-    
+
     private func removeFoodFromMeal(_ food: CustomMealFood) {
         mealFoods.removeAll { $0.id == food.id }
     }
-    
+
     private func updateFoodQuantity(_ food: CustomMealFood, newQuantity: Double) {
         if let index = mealFoods.firstIndex(where: { $0.id == food.id }) {
             let baseFood = food
             let multiplier = newQuantity / food.quantity
-            
+
             mealFoods[index] = CustomMealFood(
                 id: baseFood.id,
                 mealId: baseFood.mealId,
@@ -296,11 +296,11 @@ struct CreateCustomMealView: View {
             )
         }
     }
-    
+
     private func saveMeal() {
         // Validate
         guard validateFields() else { return }
-        
+
         Task {
             if let editingMeal = editingMeal {
                 // Update existing meal
@@ -310,7 +310,7 @@ struct CreateCustomMealView: View {
                     description: description.isEmpty ? nil : description,
                     isFavorite: isFavorite
                 )
-                
+
                 if success {
                     // Update meal foods if needed
                     // (In production, implement full sync logic here)
@@ -323,30 +323,43 @@ struct CreateCustomMealView: View {
                     description: description.isEmpty ? nil : description,
                     isFavorite: isFavorite
                 ) {
-                    // Add all foods to the meal
+                    // Persist each food to the meal
                     for food in mealFoods {
-                        // In production, call addFoodToMeal API
-                        // For now, this is handled by the meal creation
+                        let request = AddFoodToMealRequest(
+                            mealId: newMeal.id,
+                            customFoodId: food.customFoodId,
+                            usdaFdcId: food.usdaFdcId,
+                            foodName: food.foodName,
+                            brandName: food.brandName,
+                            quantity: food.quantity,
+                            servingSize: food.servingSize,
+                            servingUnit: food.servingUnit,
+                            calories: food.calories,
+                            protein: food.protein,
+                            carbs: food.carbs,
+                            fat: food.fat
+                        )
+                        _ = try? await viewModel.addFoodToMeal(request: request)
                     }
                     dismiss()
                 }
             }
         }
     }
-    
+
     private func validateFields() -> Bool {
         if name.trimmingCharacters(in: .whitespaces).isEmpty {
             validationMessage = "Please enter a meal name"
             showingValidationError = true
             return false
         }
-        
+
         if mealFoods.isEmpty {
             validationMessage = "Please add at least one food to the meal"
             showingValidationError = true
             return false
         }
-        
+
         return true
     }
 }
@@ -357,18 +370,18 @@ struct MealFoodRow: View {
     let food: CustomMealFood
     let onEdit: () -> Void
     let onDelete: () -> Void
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
                 Text(food.displayName)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                
+
                 Text(food.servingDescription)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 HStack(spacing: 12) {
                     Text("\(food.calories) cal")
                         .font(.caption2)
@@ -384,9 +397,9 @@ struct MealFoodRow: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             Spacer()
-            
+
             Button {
                 onEdit()
             } label: {
@@ -394,7 +407,7 @@ struct MealFoodRow: View {
                     .foregroundColor(.accentColor)
             }
             .buttonStyle(.borderless)
-            
+
             Button {
                 onDelete()
             } label: {
@@ -428,12 +441,12 @@ struct MealFoodSearchView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: FoodViewModel
     @StateObject private var usdaViewModel = FoodSearchViewModel()
-    
+
     @State private var selectedTab: Int = 0
     @State private var searchText: String = ""
-    
+
     let onSelect: (FoodItem) -> Void
-    
+
     var body: some View {
         NavigationView {
             VStack {
@@ -443,12 +456,12 @@ struct MealFoodSearchView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding()
-                
+
                 // Search bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
-                    
+
                     TextField("Search...", text: $searchText)
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
@@ -458,7 +471,7 @@ struct MealFoodSearchView: View {
                                 usdaViewModel.performSearch()
                             }
                         }
-                    
+
                     if !searchText.isEmpty {
                         Button {
                             searchText = ""
@@ -472,7 +485,7 @@ struct MealFoodSearchView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
                 .padding(.horizontal)
-                
+
                 // Results
                 if selectedTab == 0 {
                     // USDA Foods
@@ -512,7 +525,7 @@ struct MealFoodSearchView: View {
                     let filteredFoods = searchText.isEmpty ? viewModel.customFoods : viewModel.customFoods.filter {
                         $0.name.localizedCaseInsensitiveContains(searchText)
                     }
-                    
+
                     List(filteredFoods) { food in
                         Button {
                             let foodItem = FoodItem(

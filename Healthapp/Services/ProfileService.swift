@@ -10,11 +10,36 @@ import Supabase
 
 /// Service for managing user profiles
 class ProfileService {
+    /// Shared singleton instance
+    static let shared = ProfileService()
+
     private let supabase = SupabaseClient.shared
-    
+
+    /// Private initializer to enforce singleton pattern
+    private init() {}
+
     // MARK: - Request Types
-    
-    /// Request struct for creating/updating a profile
+
+    /// Request struct for initial profile creation — omits name so existing value is never wiped
+    private struct CreateProfileRequest: Encodable {
+        let weight: Double?
+        let height: Double?
+        let age: Int?
+        let gender: String?
+        let activityLevel: String?
+        let bmr: Double
+        let tdee: Double
+        let updatedAt: String
+
+        enum CodingKeys: String, CodingKey {
+            case weight, height, age, gender
+            case activityLevel = "activity_level"
+            case bmr, tdee
+            case updatedAt = "updated_at"
+        }
+    }
+
+    /// Request struct for updating a profile (includes name)
     private struct UpdateProfileRequest: Encodable {
         let name: String?
         let weight: Double?
@@ -27,20 +52,15 @@ class ProfileService {
         let updatedAt: String
 
         enum CodingKeys: String, CodingKey {
-            case name
-            case weight
-            case height
-            case age
-            case gender
+            case name, weight, height, age, gender
             case activityLevel = "activity_level"
-            case bmr
-            case tdee
+            case bmr, tdee
             case updatedAt = "updated_at"
         }
     }
-    
+
     // MARK: - Profile Operations
-    
+
     /// Fetch user profile from database
     /// - Parameter userId: User's UUID
     /// - Returns: User profile
@@ -49,26 +69,26 @@ class ProfileService {
         do {
             let response = try await supabase.client
                 .from("users")
-                .select("id, weight, height, age, gender, activity_level, bmr, tdee, created_at, updated_at")
+                .select("id, name, weight, height, age, gender, activity_level, bmr, tdee, created_at, updated_at")
                 .eq("id", value: userId.uuidString)
                 .single()
                 .execute()
-            
+
             let decoder = JSONDecoder()
             // Don't use convertFromSnakeCase - User model has explicit CodingKeys
             decoder.dateDecodingStrategy = .iso8601
-            
+
             let user = try decoder.decode(User.self, from: response.data)
             print("✅ Profile fetched for user: \(userId)")
-            
+
             return user
-            
+
         } catch {
             print("❌ Failed to fetch profile: \(error)")
             throw ProfileError.fetchFailed(error.localizedDescription)
         }
     }
-    
+
     /// Create a new user profile (actually updates the row created by the database trigger)
     /// - Parameters:
     ///   - userId: User's UUID
@@ -92,9 +112,8 @@ class ProfileService {
             // Calculate BMR and TDEE
             let bmr = calculateBMR(weight: weight, height: height, age: age, gender: gender)
             let tdee = calculateTDEE(bmr: bmr, activityLevel: activityLevel)
-            
-            let profileData = UpdateProfileRequest(
-                name: nil,
+
+            let profileData = CreateProfileRequest(
                 weight: weight,
                 height: height,
                 age: age,
@@ -104,7 +123,7 @@ class ProfileService {
                 tdee: tdee,
                 updatedAt: ISO8601DateFormatter().string(from: Date())
             )
-            
+
             // Use UPDATE instead of INSERT because row already exists from trigger
             let response = try await supabase.client
                 .from("users")
@@ -113,28 +132,28 @@ class ProfileService {
                 .select()
                 .single()
                 .execute()
-            
+
             // Debug: Print raw JSON response
             if let jsonString = String(data: response.data, encoding: .utf8) {
                 print("📥 Raw Supabase response for createProfile:")
                 print(jsonString)
             }
-            
+
             let decoder = JSONDecoder()
             // Don't use convertFromSnakeCase - User model has explicit CodingKeys
             decoder.dateDecodingStrategy = .iso8601
-            
+
             let user = try decoder.decode(User.self, from: response.data)
             print("✅ Profile created for user: \(userId)")
-            
+
             return user
-            
+
         } catch {
             print("❌ Failed to create profile: \(error)")
             throw ProfileError.createFailed(error.localizedDescription)
         }
     }
-    
+
     /// Update user profile
     /// - Parameters:
     ///   - userId: User's UUID
@@ -180,7 +199,7 @@ class ProfileService {
                 tdee: tdee,
                 updatedAt: ISO8601DateFormatter().string(from: Date())
             )
-            
+
             let response = try await supabase.client
                 .from("users")
                 .update(updateData)
@@ -188,22 +207,22 @@ class ProfileService {
                 .select()
                 .single()
                 .execute()
-            
+
             let decoder = JSONDecoder()
             // Don't use convertFromSnakeCase - User model has explicit CodingKeys
             decoder.dateDecodingStrategy = .iso8601
-            
+
             let user = try decoder.decode(User.self, from: response.data)
             print("✅ Profile updated for user: \(userId)")
-            
+
             return user
-            
+
         } catch {
             print("❌ Failed to update profile: \(error)")
             throw ProfileError.updateFailed(error.localizedDescription)
         }
     }
-    
+
     /// Update only the user's weight
     /// - Parameters:
     ///   - userId: User's UUID
@@ -213,9 +232,9 @@ class ProfileService {
     func updateWeight(userId: UUID, weight: Double) async throws -> User {
         return try await updateProfile(userId: userId, weight: weight)
     }
-    
+
     // MARK: - Calculations
-    
+
     /// Calculate Basal Metabolic Rate using Mifflin-St Jeor Equation
     /// This matches the User model's calculateBMR() method and the database function
     /// - Parameters:
@@ -226,7 +245,7 @@ class ProfileService {
     /// - Returns: BMR in calories per day
     func calculateBMR(weight: Double, height: Double, age: Int, gender: Gender) -> Double {
         let baseBMR = (10 * weight) + (6.25 * height) - (5 * Double(age))
-        
+
         switch gender {
         case .male:
             return baseBMR + 5
@@ -236,7 +255,7 @@ class ProfileService {
             return baseBMR - 78 // Average of male and female
         }
     }
-    
+
     /// Calculate Total Daily Energy Expenditure
     /// This matches the User model's calculateTDEE() method and the database function
     /// - Parameters:
@@ -277,7 +296,7 @@ enum ProfileError: LocalizedError {
     case updateFailed(String)
     case invalidData
     case userNotFound
-    
+
     var errorDescription: String? {
         switch self {
         case .fetchFailed(let message):

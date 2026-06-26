@@ -121,6 +121,9 @@ struct OnboardingView: View {
                 appState: appState
             )
 
+        case .goalsSetup:
+            GoalsSetupPageView(onboardingViewModel: viewModel)
+
         case .stravaConnection:
             StravaConnectionPageView(onboardingViewModel: viewModel)
 
@@ -205,7 +208,7 @@ struct OnboardingView: View {
         switch viewModel.currentPage {
         case .profileSetup:
             return viewModel.isProfileSetupComplete
-        case .ready:
+        case .goalsSetup, .ready:
             return true
         default:
             return viewModel.canGoNext

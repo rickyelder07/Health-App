@@ -11,110 +11,111 @@ import SwiftUI
 struct FoodDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var foodViewModel: FoodViewModel
-    
+
     // Food sources (only one will be set)
     let usdaFood: USDAFood?
     let customFood: CustomFood?
-    
+
     // Logging parameters
     @State private var servings: Double = 1.0
     @State private var selectedMealType: MealType = .breakfast
     @State private var selectedDate: Date = Date()
     @State private var isLogging = false
-    
+    @State private var showingEditFood = false
+
     init(usdaFood: USDAFood, foodViewModel: FoodViewModel, onLog: @escaping () -> Void) {
         self.usdaFood = usdaFood
         self.customFood = nil
         self.foodViewModel = foodViewModel
         self.onLogCallback = onLog
     }
-    
+
     init(customFood: CustomFood, foodViewModel: FoodViewModel, onLog: @escaping () -> Void) {
         self.usdaFood = nil
         self.customFood = customFood
         self.foodViewModel = foodViewModel
         self.onLogCallback = onLog
     }
-    
+
     let onLogCallback: () -> Void
-    
+
     // Computed properties
     private var foodName: String {
         usdaFood?.description ?? customFood?.name ?? ""
     }
-    
+
     private var brandName: String? {
         usdaFood?.brandName ?? customFood?.brand
     }
-    
+
     private var baseServingSize: String {
         if let usda = usdaFood {
             return usda.servingSize.map { String(format: "%.0f", $0) } ?? "100"
         }
         return customFood?.servingSize ?? "100"
     }
-    
+
     private var servingUnit: String {
         usdaFood?.servingSizeUnit ?? customFood?.servingUnit ?? "g"
     }
-    
+
     private var baseCalories: Int {
         Int(usdaFood?.calories ?? Double(customFood?.calories ?? 0))
     }
-    
+
     private var baseProtein: Double {
         usdaFood?.protein ?? customFood?.protein ?? 0
     }
-    
+
     private var baseCarbs: Double {
         usdaFood?.carbohydrates ?? customFood?.carbs ?? 0
     }
-    
+
     private var baseFat: Double {
         usdaFood?.fat ?? customFood?.fat ?? 0
     }
-    
+
     private var baseFiber: Double? {
         usdaFood?.getNutrient(name: "fiber") ?? customFood?.fiber
     }
-    
+
     private var baseSugar: Double? {
         usdaFood?.getNutrient(name: "sugar") ?? customFood?.sugar
     }
-    
+
     private var baseSodium: Double? {
         usdaFood?.getNutrient(name: "sodium") ?? customFood?.sodium
     }
-    
+
     // Calculated totals based on servings
     private var totalCalories: Int {
         Int(Double(baseCalories) * servings)
     }
-    
+
     private var totalProtein: Double {
         baseProtein * servings
     }
-    
+
     private var totalCarbs: Double {
         baseCarbs * servings
     }
-    
+
     private var totalFat: Double {
         baseFat * servings
     }
-    
+
     private var totalFiber: Double? {
         baseFiber.map { $0 * servings }
     }
-    
+
     private var totalSugar: Double? {
         baseSugar.map { $0 * servings }
     }
-    
+
     private var totalSodium: Double? {
         baseSodium.map { $0 * servings }
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -124,13 +125,13 @@ struct FoodDetailView: View {
                         Text(foodName)
                             .font(.title2)
                             .fontWeight(.bold)
-                        
+
                         if let brand = brandName {
                             Text(brand)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         HStack(spacing: 4) {
                             if usdaFood != nil {
                                 Label("USDA Database", systemImage: "checkmark.seal.fill")
@@ -145,12 +146,12 @@ struct FoodDetailView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    
+
                     // Serving Size Adjuster
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Serving Size")
                             .font(.headline)
-                        
+
                         HStack {
                             Button {
                                 if servings > 0.25 {
@@ -161,21 +162,21 @@ struct FoodDetailView: View {
                                     .font(.title2)
                                     .foregroundColor(.accentColor)
                             }
-                            
+
                             Spacer()
-                            
+
                             VStack(spacing: 4) {
                                 Text(String(format: "%.2f", servings))
                                     .font(.title)
                                     .fontWeight(.bold)
-                                
+
                                 Text("× \(baseServingSize) \(servingUnit)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
-                            
+
                             Button {
                                 servings += 0.25
                             } label: {
@@ -184,7 +185,7 @@ struct FoodDetailView: View {
                                     .foregroundColor(.accentColor)
                             }
                         }
-                        
+
                         Slider(value: $servings, in: 0.25...10, step: 0.25)
                             .tint(.accentColor)
                     }
@@ -192,12 +193,12 @@ struct FoodDetailView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                     .padding(.horizontal)
-                    
+
                     // Nutrition Facts
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Nutrition Facts")
                             .font(.headline)
-                        
+
                         VStack(spacing: 0) {
                             // Calories (large)
                             HStack {
@@ -212,9 +213,9 @@ struct FoodDetailView: View {
                             }
                             .padding()
                             .background(Color(.systemBackground))
-                            
+
                             Divider()
-                            
+
                             // Macros
                             NutritionRow(
                                 label: "Protein",
@@ -222,25 +223,25 @@ struct FoodDetailView: View {
                                 icon: "flame.fill",
                                 color: .red
                             )
-                            
+
                             Divider()
-                            
+
                             NutritionRow(
                                 label: "Carbohydrates",
                                 value: String(format: "%.1f g", totalCarbs),
                                 icon: "leaf.fill",
                                 color: .blue
                             )
-                            
+
                             Divider()
-                            
+
                             NutritionRow(
                                 label: "Fat",
                                 value: String(format: "%.1f g", totalFat),
                                 icon: "drop.fill",
                                 color: .purple
                             )
-                            
+
                             // Optional nutrients
                             if let fiber = totalFiber {
                                 Divider()
@@ -251,7 +252,7 @@ struct FoodDetailView: View {
                                     color: .green
                                 )
                             }
-                            
+
                             if let sugar = totalSugar {
                                 Divider()
                                 NutritionRow(
@@ -261,7 +262,7 @@ struct FoodDetailView: View {
                                     color: .pink
                                 )
                             }
-                            
+
                             if let sodium = totalSodium {
                                 Divider()
                                 NutritionRow(
@@ -301,7 +302,7 @@ struct FoodDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Meal Type")
                             .font(.headline)
-                        
+
                         HStack(spacing: 12) {
                             ForEach(MealType.allCases, id: \.self) { mealType in
                                 MealTypeButton(
@@ -315,7 +316,7 @@ struct FoodDetailView: View {
                         }
                     }
                     .padding(.horizontal)
-                    
+
                     // Log Button
                     Button {
                         logFood()
@@ -333,12 +334,12 @@ struct FoodDetailView: View {
                     }
                     .disabled(isLogging)
                     .padding(.horizontal)
-                    
+
                     // Additional actions for custom foods
                     if customFood != nil {
                         HStack(spacing: 12) {
                             Button {
-                                // Edit food
+                                showingEditFood = true
                             } label: {
                                 Label("Edit", systemImage: "pencil")
                                     .frame(maxWidth: .infinity)
@@ -347,7 +348,7 @@ struct FoodDetailView: View {
                                     .foregroundColor(.primary)
                                     .cornerRadius(12)
                             }
-                            
+
                             Button {
                                 // Toggle favorite
                                 if let food = customFood {
@@ -366,7 +367,7 @@ struct FoodDetailView: View {
                         }
                         .padding(.horizontal)
                     }
-                    
+
                     // USDA Copy Button
                     if usdaFood != nil {
                         Button {
@@ -396,14 +397,19 @@ struct FoodDetailView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingEditFood) {
+                if let food = customFood {
+                    CreateCustomFoodView(viewModel: foodViewModel, editingFood: food)
+                }
+            }
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func logFood() {
         isLogging = true
-        
+
         Task {
             let success = await foodViewModel.logFood(
                 foodName: foodName,
@@ -423,9 +429,9 @@ struct FoodDetailView: View {
                 usdaFdcId: usdaFood.map { String($0.fdcId) },
                 customFoodId: customFood?.id
             )
-            
+
             isLogging = false
-            
+
             if success {
                 onLogCallback()
                 dismiss()
@@ -441,7 +447,7 @@ struct NutritionRow: View {
     let value: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
         HStack {
             HStack(spacing: 8) {
@@ -450,9 +456,9 @@ struct NutritionRow: View {
                     .frame(width: 20)
                 Text(label)
             }
-            
+
             Spacer()
-            
+
             Text(value)
                 .fontWeight(.semibold)
         }
@@ -464,7 +470,7 @@ struct MealTypeButton: View {
     let mealType: MealType
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
@@ -486,32 +492,32 @@ struct MealTypeButton: View {
 struct MealDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var foodViewModel: FoodViewModel
-    
+
     let meal: CustomMeal
     let onLogCallback: () -> Void
-    
+
     @State private var multiplier: Double = 1.0
     @State private var selectedMealType: MealType = .lunch
     @State private var selectedDate: Date = Date()
     @State private var isLogging = false
     @State private var mealFoods: [CustomMealFood] = []
-    
+
     private var totalCalories: Int {
         Int(Double(meal.totalCalories) * multiplier)
     }
-    
+
     private var totalProtein: Double {
         meal.totalProtein * multiplier
     }
-    
+
     private var totalCarbs: Double {
         meal.totalCarbs * multiplier
     }
-    
+
     private var totalFat: Double {
         meal.totalFat * multiplier
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -527,25 +533,25 @@ struct MealDetailView: View {
                                 .font(.title2)
                                 .fontWeight(.bold)
                         }
-                        
+
                         if let description = meal.description, !description.isEmpty {
                             Text(description)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Label("Custom Meal", systemImage: "star.fill")
                             .font(.caption)
                             .foregroundColor(.blue)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    
+
                     // Multiplier
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Servings")
                             .font(.headline)
-                        
+
                         HStack {
                             Button {
                                 if multiplier > 0.25 {
@@ -556,15 +562,15 @@ struct MealDetailView: View {
                                     .font(.title2)
                                     .foregroundColor(.accentColor)
                             }
-                            
+
                             Spacer()
-                            
+
                             Text(String(format: "%.2f×", multiplier))
                                 .font(.title)
                                 .fontWeight(.bold)
-                            
+
                             Spacer()
-                            
+
                             Button {
                                 multiplier += 0.25
                             } label: {
@@ -573,7 +579,7 @@ struct MealDetailView: View {
                                     .foregroundColor(.accentColor)
                             }
                         }
-                        
+
                         Slider(value: $multiplier, in: 0.25...5, step: 0.25)
                             .tint(.accentColor)
                     }
@@ -581,14 +587,14 @@ struct MealDetailView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                     .padding(.horizontal)
-                    
+
                     // Foods in Meal
                     if !mealFoods.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Foods in This Meal")
                                 .font(.headline)
                                 .padding(.horizontal)
-                            
+
                             VStack(spacing: 8) {
                                 ForEach(mealFoods) { food in
                                     HStack {
@@ -599,9 +605,9 @@ struct MealDetailView: View {
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                         }
-                                        
+
                                         Spacer()
-                                        
+
                                         Text("\(food.calories) cal")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
@@ -614,12 +620,12 @@ struct MealDetailView: View {
                             .padding(.horizontal)
                         }
                     }
-                    
+
                     // Total Nutrition
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Total Nutrition")
                             .font(.headline)
-                        
+
                         MacroSummaryCard(
                             calories: totalCalories,
                             caloriesTarget: totalCalories,
@@ -656,7 +662,7 @@ struct MealDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Meal Type")
                             .font(.headline)
-                        
+
                         HStack(spacing: 12) {
                             ForEach(MealType.allCases, id: \.self) { mealType in
                                 MealTypeButton(
@@ -670,7 +676,7 @@ struct MealDetailView: View {
                         }
                     }
                     .padding(.horizontal)
-                    
+
                     // Log Button
                     Button {
                         logMeal()
@@ -704,15 +710,15 @@ struct MealDetailView: View {
             }
         }
     }
-    
+
     private func loadMealFoods() async {
         await foodViewModel.loadMealFoods(mealId: meal.id)
         mealFoods = foodViewModel.selectedMealFoods
     }
-    
+
     private func logMeal() {
         isLogging = true
-        
+
         Task {
             let success = await foodViewModel.logFood(
                 foodName: meal.name,
@@ -731,9 +737,9 @@ struct MealDetailView: View {
                 logDate: selectedDate,
                 customMealId: meal.id
             )
-            
+
             isLogging = false
-            
+
             if success {
                 onLogCallback()
                 dismiss()

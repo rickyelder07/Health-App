@@ -31,7 +31,7 @@ class SyncManager: ObservableObject {
 
     /// Services for performing sync operations
     private let foodService = FoodService()
-    private let profileService = ProfileService()
+    private let profileService = ProfileService.shared
     private let photoService = PhotoService()
 
     // MARK: - Initialization

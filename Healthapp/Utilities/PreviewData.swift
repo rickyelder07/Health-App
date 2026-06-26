@@ -305,7 +305,7 @@ struct PreviewData {
     // MARK: - User Settings
 
     static let defaultSettings = UserSettings(
-        calorieGoalSource: .tdee,
+        fitnessGoal: .maintenance,
         dailyCalorieTarget: nil,
         proteinTargetGrams: 150.0,
         carbsTargetGrams: 250.0,
@@ -320,7 +320,7 @@ struct PreviewData {
     )
 
     static let customSettings = UserSettings(
-        calorieGoalSource: .custom,
+        fitnessGoal: .manual,
         dailyCalorieTarget: 2500,
         proteinTargetGrams: 180.0,
         carbsTargetGrams: 200.0,

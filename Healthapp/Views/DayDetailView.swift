@@ -18,6 +18,7 @@ struct DayDetailView: View {
     @State private var showingWeightEntry = false
     @State private var showingPhotoUpload = false
     @State private var weightInput: String = ""
+    private let weightUnit = UserSettings.load().weightUnit
     @State private var photoNotes: String = ""
     @State private var selectedImage: UIImage?
     @State private var showingImagePicker = false
@@ -91,7 +92,10 @@ struct DayDetailView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
                         Button {
-                            weightInput = viewModel.weight.map { String(format: "%.1f", $0) } ?? ""
+                            // Pre-fill in user's preferred unit
+                            weightInput = viewModel.weight.map {
+                                String(format: "%.1f", weightUnit.convert(fromKg: $0))
+                            } ?? ""
                             showingWeightEntry = true
                         } label: {
                             Label("Log Weight", systemImage: "scalemass")
@@ -117,16 +121,17 @@ struct DayDetailView: View {
             .task {
                 await viewModel.loadDayData()
             }
-            .alert("Log Weight", isPresented: $showingWeightEntry) {
-                TextField("Weight (kg)", text: $weightInput)
+            .alert("Log Weight (\(weightUnit.abbreviation))", isPresented: $showingWeightEntry) {
+                TextField("Weight (\(weightUnit.abbreviation))", text: $weightInput)
                     .keyboardType(.decimalPad)
 
                 Button("Cancel", role: .cancel) {}
 
                 Button("Save") {
-                    if let weight = Double(weightInput) {
+                    if let value = Double(weightInput) {
+                        let weightKg = weightUnit.toKg(value)
                         Task {
-                            let success = await viewModel.updateWeight(weight)
+                            let success = await viewModel.updateWeight(weightKg)
                             if success {
                                 await viewModel.refresh()
                             }

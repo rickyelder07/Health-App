@@ -43,7 +43,7 @@ struct ProfileView: View {
                     .padding(.vertical, 8)
                     .accessible(label: "User profile: \(userName), \(appState.currentUser?.email ?? "")", traits: .isStaticText)
                 }
-                
+
                 // Physical stats section
                 Section("Physical Stats") {
                     NavigationLink {
@@ -56,7 +56,7 @@ struct ProfileView: View {
                     }
                     .accessibilityLabel("Edit profile")
                     .accessibilityHint("Opens profile editor to update physical stats")
-                    
+
                     if let weight = appState.currentUser?.weight {
                         LabeledContent("Weight", value: UnitFormatter.formatWeight(weight))
                     } else {
@@ -68,20 +68,20 @@ struct ProfileView: View {
                     } else {
                         LabeledContent("Height", value: "Not set")
                     }
-                    
+
                     if let age = appState.currentUser?.age {
                         LabeledContent("Age", value: "\(age) years")
                     } else {
                         LabeledContent("Age", value: "Not set")
                     }
-                    
+
                     if let gender = appState.currentUser?.gender {
                         LabeledContent("Gender", value: gender.displayName)
                     } else {
                         LabeledContent("Gender", value: "Not set")
                     }
                 }
-                
+
                 // Calorie info section
                 Section("Daily Calories") {
                     // Show stored BMR or calculate it if possible
@@ -95,7 +95,7 @@ struct ProfileView: View {
                             LabeledContent("BMR", value: "Not calculated")
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         // Show stored TDEE or calculate it if possible
                         if let tdee = user.tdee {
                             LabeledContent("TDEE", value: "\(Int(tdee)) cal")
@@ -106,7 +106,7 @@ struct ProfileView: View {
                             LabeledContent("TDEE", value: "Not calculated")
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         if let activityLevel = user.activityLevel {
                             LabeledContent("Activity Level", value: activityLevel.displayName)
                         } else {
@@ -114,7 +114,7 @@ struct ProfileView: View {
                         }
                     }
                 }
-                
+
                 // Integrations section
                 Section("Integrations") {
                     if let userId = appState.currentUser?.id {
@@ -185,7 +185,7 @@ struct ProfileView: View {
                         .accessibilityHint("Set daily calorie and macro targets")
 
                         NavigationLink {
-                            QuickAddSettingsView()
+                            QuickAddSettingsView(userId: appState.currentUser?.id)
                         } label: {
                             HStack {
                                 Image(systemName: "bolt.circle.fill")

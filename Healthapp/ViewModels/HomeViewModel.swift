@@ -48,7 +48,7 @@ class HomeViewModel: ObservableObject {
             async let fetchedUser = profileService.fetchProfile(userId: userId)
             async let fetchedSummary = summaryService.fetchSummary(userId: userId, date: Date())
 
-            user = try? await fetchedUser
+            if let freshUser = try? await fetchedUser { user = freshUser }
 
             print("📍 Step 1: Fetching summary for user \(userId)")
             dailySummary = try await fetchedSummary
@@ -139,11 +139,9 @@ class HomeViewModel: ObservableObject {
         foodEntries.reduce(0.0) { $0 + $1.totalFat }
     }
 
-    /// Total calories burned (BMR + exercise) - uses dailySummary for BMR, calculates exercise from activities
+    /// Total calories burned — mirrors calorieTarget until burned tracking is rebuilt
     var caloriesBurned: Int {
-        let bmr = dailySummary?.caloriesBurnedBmr ?? 0
-        let exercise = totalExerciseCalories
-        return bmr + exercise
+        calorieTarget
     }
 
     /// Net calories relative to the active budget mode:
@@ -165,16 +163,16 @@ class HomeViewModel: ObservableObject {
         UserSettings.load().calorieMode == .stravaDynamic
     }
 
+    // ponytail: daily summary's caloriesBurnedBmr is a historical snapshot — use live user.bmr for goal calc
     var bmrCalories: Int {
-        dailySummary?.caloriesBurnedBmr ?? Int(user?.calculateBMR() ?? 0)
+        Int(user?.bmr ?? user?.calculateBMR() ?? 0)
     }
 
     /// Calorie target derived from the user's fitness goal and budget mode
     var calorieTarget: Int {
         let settings = UserSettings.load()
         if settings.calorieMode == .stravaDynamic {
-            let bmr = dailySummary?.caloriesBurnedBmr ?? Int(user?.calculateBMR() ?? 0)
-            return settings.stravaCalorieTarget(bmr: bmr, exerciseCalories: totalExerciseCalories)
+            return settings.stravaCalorieTarget(bmr: bmrCalories, exerciseCalories: totalExerciseCalories)
         }
         let tdee = Int(user?.tdee ?? user?.calculateTDEE() ?? 0)
         return settings.effectiveCalorieTarget(tdee: tdee)

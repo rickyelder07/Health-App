@@ -230,6 +230,7 @@ private struct HomeContentView: View {
         .refreshable {
             HapticFeedback.light()
             await viewModel.refresh()
+            if let freshUser = viewModel.user { appState.setUser(freshUser) }
             if viewModel.errorMessage != nil {
                 HapticFeedback.error()
                 toastMessage = viewModel.errorMessage ?? "Failed to refresh"
@@ -239,7 +240,11 @@ private struct HomeContentView: View {
             }
         }
         .task {
+            viewModel.user = appState.currentUser  // seed so calorieTarget never falls back to 0
             await viewModel.loadTodaySummary()
+            if let freshUser = viewModel.user {
+                appState.setUser(freshUser)  // keep FoodLogListView in sync with same TDEE
+            }
             foodViewModel.setUser(userId: userId)
             photoViewModel.setUser(userId: userId)
 

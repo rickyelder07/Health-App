@@ -18,8 +18,11 @@ struct QuickAddSettingsView: View {
     @State private var editingButton: QuickAddFoodButton?
     @State private var showingButtonEditor = false
 
-    init() {
-        let loadedSettings = QuickAddSettings.load()
+    private let userId: UUID?
+
+    init(userId: UUID? = nil) {
+        self.userId = userId
+        let loadedSettings = QuickAddSettings.load(userId: userId)
         _settings = State(initialValue: loadedSettings)
         _numberOfButtons = State(initialValue: max(1, min(6, loadedSettings.buttons.count)))
     }
@@ -100,7 +103,7 @@ struct QuickAddSettingsView: View {
                         for (index, button) in settings.buttons.enumerated() {
                             print("📱 Button \(index + 1): \(button.label) - \(button.foodName)")
                         }
-                        settings.save()
+                        settings.save(userId: userId ?? appState.currentUser?.id)
                         dismiss()
                     } label: {
                         Text("Save Configuration")

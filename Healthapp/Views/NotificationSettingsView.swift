@@ -46,35 +46,44 @@ struct NotificationSettingsView: View {
                     Text("Permissions")
                 }
 
-                // Daily Logging Reminder
+                // Meal Reminders
                 Section {
-                    Toggle("Daily Reminder", isOn: $preferences.dailyLoggingReminderEnabled)
-                        .onChange(of: preferences.dailyLoggingReminderEnabled) { newValue in
-                            if newValue {
-                                NotificationManager.shared.scheduleDailyLoggingReminder(at: preferences.dailyLoggingTime)
-                            } else {
-                                NotificationManager.shared.cancelDailyLoggingReminder()
-                            }
-                            savePreferences()
-                        }
-
-                    if preferences.dailyLoggingReminderEnabled {
-                        DatePicker(
-                            "Reminder Time",
-                            selection: $preferences.dailyLoggingTime,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .onChange(of: preferences.dailyLoggingTime) { _ in
-                            NotificationManager.shared.scheduleDailyLoggingReminder(at: preferences.dailyLoggingTime)
-                            savePreferences()
-                        }
-
-                        Text("Get reminded to log your meals every day")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    MealReminderRow(
+                        label: "Breakfast",
+                        icon: "sunrise.fill",
+                        isOn: $preferences.breakfastReminderEnabled,
+                        time: $preferences.breakfastTime
+                    ) { saveAndReschedule() }
                 } header: {
-                    Text("Food Logging")
+                    Text("Breakfast Reminder")
+                } footer: {
+                    Text("Only fires if you haven't logged breakfast yet.")
+                }
+
+                Section {
+                    MealReminderRow(
+                        label: "Lunch",
+                        icon: "sun.max.fill",
+                        isOn: $preferences.lunchReminderEnabled,
+                        time: $preferences.lunchTime
+                    ) { saveAndReschedule() }
+                } header: {
+                    Text("Lunch Reminder")
+                } footer: {
+                    Text("Only fires if you haven't logged lunch yet.")
+                }
+
+                Section {
+                    MealReminderRow(
+                        label: "Dinner",
+                        icon: "moon.fill",
+                        isOn: $preferences.dinnerReminderEnabled,
+                        time: $preferences.dinnerTime
+                    ) { saveAndReschedule() }
+                } header: {
+                    Text("Dinner Reminder")
+                } footer: {
+                    Text("Only fires if you haven't logged dinner yet.")
                 }
 
                 // Strava Sync Reminder
@@ -199,6 +208,11 @@ struct NotificationSettingsView: View {
         preferences.save()
     }
 
+    private func saveAndReschedule() {
+        preferences.save()
+        NotificationManager.shared.scheduleMealReminders()
+    }
+
     private func checkPermissionStatus() async {
         let status = await NotificationManager.shared.checkPermissionStatus()
 
@@ -255,6 +269,26 @@ struct NotificationSettingsView: View {
         let date = Calendar.current.date(from: components) ?? Date()
 
         return formatter.string(from: date)
+    }
+}
+
+private struct MealReminderRow: View {
+    let label: String
+    let icon: String
+    @Binding var isOn: Bool
+    @Binding var time: Date
+    let onChange: () -> Void
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Label(label, systemImage: icon)
+        }
+        .onChange(of: isOn) { _ in onChange() }
+
+        if isOn {
+            DatePicker("Reminder Time", selection: $time, displayedComponents: .hourAndMinute)
+                .onChange(of: time) { _ in onChange() }
+        }
     }
 }
 

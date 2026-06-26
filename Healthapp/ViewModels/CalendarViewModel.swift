@@ -37,7 +37,7 @@ class CalendarViewModel: ObservableObject {
     // MARK: - Private Properties
 
     private let userId: UUID
-    private let summaryService = DailySummaryService()
+    private let summaryService = DailySummaryService.shared
     private let calendar = Calendar.current
 
     // MARK: - Computed Properties
@@ -63,10 +63,12 @@ class CalendarViewModel: ObservableObject {
         // Calculate total days including padding
         var days: [Date] = []
 
-        // Add padding days from previous month
-        for dayOffset in (1...paddingDays).reversed() {
-            if let date = calendar.date(byAdding: .day, value: -dayOffset, to: monthStart) {
-                days.append(date)
+        // Add padding days from previous month (only if paddingDays > 0)
+        if paddingDays > 0 {
+            for dayOffset in (1...paddingDays).reversed() {
+                if let date = calendar.date(byAdding: .day, value: -dayOffset, to: monthStart) {
+                    days.append(date)
+                }
             }
         }
 
@@ -79,9 +81,11 @@ class CalendarViewModel: ObservableObject {
 
         // Add padding days from next month to complete the grid (42 days = 6 weeks)
         let remainingDays = 42 - days.count
-        for day in 1...remainingDays {
-            if let date = calendar.date(byAdding: .day, value: day, to: monthEnd) {
-                days.append(date)
+        if remainingDays > 0 {
+            for day in 1...remainingDays {
+                if let date = calendar.date(byAdding: .day, value: day, to: monthEnd) {
+                    days.append(date)
+                }
             }
         }
 
@@ -234,12 +238,14 @@ class CalendarViewModel: ObservableObject {
 
             indicator.dailySummary = summary
 
-            // Check for surplus/deficit
-            let netCalories = summary.netCalories ?? summary.calculateNetCalories()
-            if netCalories > 0 {
-                indicator.hasSurplus = true
-            } else if netCalories < 0 {
-                indicator.hasDeficit = true
+            // Only show surplus/deficit if food was actually logged that day
+            if summary.caloriesConsumed > 0 {
+                let netCalories = summary.netCalories ?? summary.calculateNetCalories()
+                if netCalories > 0 {
+                    indicator.hasSurplus = true
+                } else if netCalories < 0 {
+                    indicator.hasDeficit = true
+                }
             }
 
             indicators[date] = indicator

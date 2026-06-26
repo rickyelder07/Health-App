@@ -11,22 +11,22 @@ import SwiftUI
 struct AddProgressPhotoView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: ProgressPhotoViewModel
-    
+
     @State private var selectedImage: UIImage?
     @State private var showingImagePicker = false
     @State private var showingCamera = false
     @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
-    
+
     @State private var weight: String = ""
     @State private var notes: String = ""
     @State private var takenAt: Date = Date()
-    
+
     @State private var showingPermissionRequest = false
     @State private var showingPermissionDenied = false
     @State private var permissionType: PermissionRequestView.PermissionType = .camera
-    
+
     @StateObject private var permissionManager = PermissionManager()
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -44,7 +44,7 @@ struct AddProgressPhotoView: View {
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
-                            
+
                             // Change Photo Button
                             Button {
                                 selectedImage = nil
@@ -66,7 +66,7 @@ struct AddProgressPhotoView: View {
                                         .background(Color.accentColor)
                                         .cornerRadius(12)
                                 }
-                                
+
                                 Button {
                                     checkPhotoLibraryPermissionAndOpen()
                                 } label: {
@@ -83,7 +83,7 @@ struct AddProgressPhotoView: View {
                         }
                     }
                     .padding(.horizontal)
-                    
+
                     // Photo Details Form
                     if selectedImage != nil {
                         VStack(spacing: 20) {
@@ -93,7 +93,7 @@ struct AddProgressPhotoView: View {
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                
+
                                 DatePicker(
                                     "",
                                     selection: $takenAt,
@@ -103,31 +103,31 @@ struct AddProgressPhotoView: View {
                                 .datePickerStyle(.compact)
                                 .labelsHidden()
                             }
-                            
+
                             // Weight Input
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Weight (optional)")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                
+
                                 HStack {
                                     TextField("Enter weight", text: $weight)
                                         .keyboardType(.decimalPad)
                                         .textFieldStyle(.roundedBorder)
-                                    
+
                                     Text("lbs")
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            
+
                             // Notes Input
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Notes (optional)")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                
+
                                 TextEditor(text: $notes)
                                     .frame(height: 100)
                                     .padding(8)
@@ -138,7 +138,7 @@ struct AddProgressPhotoView: View {
                             }
                         }
                         .padding(.horizontal)
-                        
+
                         // Upload Button
                         Button {
                             uploadPhoto()
@@ -157,6 +157,7 @@ struct AddProgressPhotoView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                         .padding()
                         .background(selectedImage != nil ? Color.accentColor : Color.gray)
                         .cornerRadius(12)
@@ -204,12 +205,12 @@ struct AddProgressPhotoView: View {
             }
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func checkCameraPermissionAndOpen() {
         permissionManager.checkCameraPermission()
-        
+
         switch permissionManager.cameraPermissionStatus {
         case .authorized:
             imageSource = .camera
@@ -222,10 +223,10 @@ struct AddProgressPhotoView: View {
             showingPermissionRequest = true
         }
     }
-    
+
     private func checkPhotoLibraryPermissionAndOpen() {
         permissionManager.checkPhotoLibraryPermission()
-        
+
         switch permissionManager.photoLibraryPermissionStatus {
         case .authorized:
             imageSource = .photoLibrary
@@ -238,13 +239,13 @@ struct AddProgressPhotoView: View {
             showingPermissionRequest = true
         }
     }
-    
+
     private func uploadPhoto() {
         guard let image = selectedImage else { return }
-        
+
         let weightValue = Double(weight)
         let notesValue = notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
-        
+
         Task {
             let success = await viewModel.uploadPhoto(
                 image: image,
@@ -252,7 +253,7 @@ struct AddProgressPhotoView: View {
                 notes: notesValue,
                 takenAt: takenAt
             )
-            
+
             if success {
                 dismiss()
             }

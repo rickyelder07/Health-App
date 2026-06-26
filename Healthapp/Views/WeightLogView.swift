@@ -17,7 +17,7 @@ struct WeightLogView: View {
     @State private var selectedDate = Date()
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var useMetric = true
+    @State private var useMetric = UserSettings.load().weightUnit == .kg
 
     var body: some View {
         NavigationView {

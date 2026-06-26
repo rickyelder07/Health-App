@@ -45,7 +45,7 @@ class AnalyticsViewModel: ObservableObject {
     // MARK: - Private Properties
 
     private let userId: UUID
-    private let summaryService = DailySummaryService()
+    private let summaryService = DailySummaryService.shared
     private let foodService = FoodService()
     private let stravaService = StravaService()
 
@@ -64,7 +64,8 @@ class AnalyticsViewModel: ObservableObject {
         errorMessage = nil
 
         let startDate = selectedRange.startDate
-        let endDate = Date()
+        // Exclude today — partial day data skews averages
+        let endDate = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-1)
 
         do {
             print("📊 Fetching data from \(startDate.dateOnlyString) to \(endDate.dateOnlyString)")
@@ -163,11 +164,14 @@ class AnalyticsViewModel: ObservableObject {
         return current - start
     }
 
-    /// Average weekly weight change
+    /// Average weekly weight change (based on actual data span, not selected range)
     var averageWeeklyChange: Double? {
-        guard let change = weightChange else { return nil }
-        let weeks = Double(selectedRange.days) / 7.0
-        return change / weeks
+        guard let change = weightChange,
+              let firstDate = weightDataPoints.first?.date,
+              let lastDate = weightDataPoints.last?.date else { return nil }
+        let days = Calendar.current.dateComponents([.day], from: firstDate, to: lastDate).day ?? 0
+        guard days > 0 else { return nil }
+        return change / (Double(days) / 7.0)
     }
 
     // MARK: - Calorie Statistics
@@ -276,10 +280,12 @@ class AnalyticsViewModel: ObservableObject {
             .max { $0.count < $1.count }
     }
 
-    /// Activity frequency (activities per day)
+    /// Activity frequency (activities per tracked day, not per range day)
     var activityFrequency: Double {
-        guard !dailySummaries.isEmpty else { return 0 }
-        return Double(activities.count) / Double(selectedRange.days)
+        guard !activities.isEmpty else { return 0 }
+        let trackedDays = dailySummaries.count
+        guard trackedDays > 0 else { return 0 }
+        return Double(activities.count) / Double(trackedDays)
     }
 
     // MARK: - CSV Export

@@ -12,70 +12,51 @@ enum OnboardingPage: Int, CaseIterable {
     case welcome = 0
     case features
     case profileSetup
+    case goalsSetup
     case stravaConnection
     case permissions
     case ready
 
     var title: String {
         switch self {
-        case .welcome:
-            return "Welcome to Health Tracker"
-        case .features:
-            return "Track Your Health"
-        case .profileSetup:
-            return "Set Up Your Profile"
-        case .stravaConnection:
-            return "Connect Strava"
-        case .permissions:
-            return "Enable Permissions"
-        case .ready:
-            return "You're All Set!"
+        case .welcome: return "Welcome to Health Tracker"
+        case .features: return "Track Your Health"
+        case .profileSetup: return "Set Up Your Profile"
+        case .goalsSetup: return "Set Your Goals"
+        case .stravaConnection: return "Connect Strava"
+        case .permissions: return "Enable Permissions"
+        case .ready: return "You're All Set!"
         }
     }
 
     var description: String {
         switch self {
-        case .welcome:
-            return "Your personal calorie and fitness tracker"
-        case .features:
-            return "Log food, track exercise, and monitor progress"
-        case .profileSetup:
-            return "Tell us about yourself to calculate your daily calorie needs"
-        case .stravaConnection:
-            return "Sync your activities automatically (optional)"
-        case .permissions:
-            return "Grant access for the best experience"
-        case .ready:
-            return "Start tracking your health journey today"
+        case .welcome: return "Your personal calorie and fitness tracker"
+        case .features: return "Log food, track exercise, and monitor progress"
+        case .profileSetup: return "Tell us about yourself to calculate your daily calorie needs"
+        case .goalsSetup: return "Choose your fitness goal and set macro targets"
+        case .stravaConnection: return "Sync your activities automatically (optional)"
+        case .permissions: return "Grant access for the best experience"
+        case .ready: return "Start tracking your health journey today"
         }
     }
 
     var icon: String {
         switch self {
-        case .welcome:
-            return "heart.circle.fill"
-        case .features:
-            return "list.clipboard.fill"
-        case .profileSetup:
-            return "person.circle.fill"
-        case .stravaConnection:
-            return "figure.run.circle.fill"
-        case .permissions:
-            return "checkmark.shield.fill"
-        case .ready:
-            return "checkmark.circle.fill"
+        case .welcome: return "heart.circle.fill"
+        case .features: return "list.clipboard.fill"
+        case .profileSetup: return "person.circle.fill"
+        case .goalsSetup: return "target"
+        case .stravaConnection: return "figure.run.circle.fill"
+        case .permissions: return "checkmark.shield.fill"
+        case .ready: return "checkmark.circle.fill"
         }
     }
 
-    /// Whether this page can be skipped
     var isSkippable: Bool {
         switch self {
-        case .welcome, .ready:
-            return false
-        case .features, .stravaConnection, .permissions:
-            return true
-        case .profileSetup:
-            return false  // Profile setup is required
+        case .welcome, .ready, .profileSetup: return false
+        case .features, .goalsSetup, .stravaConnection, .permissions: return true
         }
     }
 }

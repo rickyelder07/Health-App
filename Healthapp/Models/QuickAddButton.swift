@@ -59,44 +59,30 @@ struct QuickAddFoodButton: Codable, Identifiable {
     }
 }
 
-/// Quick-add buttons settings (stored in UserDefaults)
+/// Quick-add buttons settings (stored in UserDefaults, scoped per user)
 struct QuickAddSettings: Codable {
     var buttons: [QuickAddFoodButton]
-
-    private static let key = "quick_add_settings"
 
     init(buttons: [QuickAddFoodButton] = []) {
         self.buttons = buttons
     }
 
-    /// Load settings from UserDefaults
-    static func load() -> QuickAddSettings {
-        print("📱 Loading quick-add settings from UserDefaults...")
-        guard let data = UserDefaults.standard.data(forKey: key) else {
-            print("📱 No saved settings found, returning empty settings")
-            return QuickAddSettings()
-        }
-
-        do {
-            let settings = try JSONDecoder().decode(QuickAddSettings.self, from: data)
-            print("📱 Successfully loaded \(settings.buttons.count) buttons")
-            return settings
-        } catch {
-            print("❌ Failed to decode settings: \(error)")
-            return QuickAddSettings()
-        }
+    private static func storageKey(userId: UUID?) -> String {
+        guard let userId else { return "quick_add_settings" }
+        return "quick_add_settings_\(userId.uuidString)"
     }
 
-    /// Save settings to UserDefaults
-    func save() {
-        print("📱 Saving quick-add settings (\(buttons.count) buttons)...")
-        do {
-            let data = try JSONEncoder().encode(self)
-            UserDefaults.standard.set(data, forKey: QuickAddSettings.key)
-            UserDefaults.standard.synchronize()
-            print("✅ Successfully saved quick-add settings")
-        } catch {
-            print("❌ Failed to encode settings: \(error)")
+    static func load(userId: UUID? = nil) -> QuickAddSettings {
+        let key = storageKey(userId: userId)
+        guard let data = UserDefaults.standard.data(forKey: key) else {
+            return QuickAddSettings()
         }
+        return (try? JSONDecoder().decode(QuickAddSettings.self, from: data)) ?? QuickAddSettings()
+    }
+
+    func save(userId: UUID? = nil) {
+        let key = QuickAddSettings.storageKey(userId: userId)
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: key)
     }
 }

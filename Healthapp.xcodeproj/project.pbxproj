@@ -13,6 +13,9 @@
 		6817EFA72EFE2C650084AE63 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA62EFE2C650084AE63 /* Realtime */; };
 		6817EFA92EFE2C650084AE63 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFA82EFE2C650084AE63 /* Storage */; };
 		6817EFF72EFE5B980084AE63 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 6817EFF62EFE5B980084AE63 /* Supabase */; };
+		6882DD8D2FEDC91A00FBFC3A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6882DD8C2FEDC91A00FBFC3A /* WidgetKit.framework */; };
+		6882DD8F2FEDC91A00FBFC3A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6882DD8E2FEDC91A00FBFC3A /* SwiftUI.framework */; };
+		6882DD9C2FEDC91B00FBFC3A /* NetfuelWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6882DD8B2FEDC91A00FBFC3A /* NetfuelWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,22 +33,58 @@
 			remoteGlobalIDString = 6817EF902EFE0B9E0084AE63;
 			remoteInfo = Healthapp;
 		};
+		6882DD9A2FEDC91B00FBFC3A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6817EF892EFE0B9E0084AE63 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6882DD8A2FEDC91A00FBFC3A;
+			remoteInfo = NetfuelWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6882DDA12FEDC91B00FBFC3A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6882DD9C2FEDC91B00FBFC3A /* NetfuelWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		6817EF912EFE0B9E0084AE63 /* Healthapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Healthapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6851236F2F0845C200DCFF4A /* HealthappTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthappTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		685123882F08478800DCFF4A /* HealthappUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthappUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6882DD8B2FEDC91A00FBFC3A /* NetfuelWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NetfuelWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6882DD8C2FEDC91A00FBFC3A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		6882DD8E2FEDC91A00FBFC3A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		6882DDA22FEDCB4100FBFC3A /* NetfuelWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NetfuelWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		6817EFF42EFE5A190084AE63 /* Exceptions for "Healthapp" folder in "Healthapp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Config/Debug.xcconfig,
+				Config/Release.xcconfig,
+				Config/Secrets.template.xcconfig,
+				Config/Secrets.xcconfig,
 				Info.plist,
 				Resources/Info.plist,
 			);
 			target = 6817EF902EFE0B9E0084AE63 /* Healthapp */;
+		};
+		6882DDA02FEDC91B00FBFC3A /* Exceptions for "NetfuelWidget" folder in "NetfuelWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6882DD8A2FEDC91A00FBFC3A /* NetfuelWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -66,6 +105,14 @@
 		685123892F08478800DCFF4A /* HealthappUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = HealthappUITests;
+			sourceTree = "<group>";
+		};
+		6882DD902FEDC91A00FBFC3A /* NetfuelWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6882DDA02FEDC91B00FBFC3A /* Exceptions for "NetfuelWidget" folder in "NetfuelWidgetExtension" target */,
+			);
+			path = NetfuelWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -98,15 +145,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6882DD882FEDC91A00FBFC3A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6882DD8F2FEDC91A00FBFC3A /* SwiftUI.framework in Frameworks */,
+				6882DD8D2FEDC91A00FBFC3A /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		6817EF882EFE0B9E0084AE63 = {
 			isa = PBXGroup;
 			children = (
+				6882DDA22FEDCB4100FBFC3A /* NetfuelWidgetExtension.entitlements */,
 				6817EF932EFE0B9E0084AE63 /* Healthapp */,
 				685123702F0845C200DCFF4A /* HealthappTests */,
 				685123892F08478800DCFF4A /* HealthappUITests */,
+				6882DD902FEDC91A00FBFC3A /* NetfuelWidget */,
 				6817EFF52EFE5B1D0084AE63 /* Frameworks */,
 				6817EF922EFE0B9E0084AE63 /* Products */,
 			);
@@ -118,6 +176,7 @@
 				6817EF912EFE0B9E0084AE63 /* Healthapp.app */,
 				6851236F2F0845C200DCFF4A /* HealthappTests.xctest */,
 				685123882F08478800DCFF4A /* HealthappUITests.xctest */,
+				6882DD8B2FEDC91A00FBFC3A /* NetfuelWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -125,6 +184,8 @@
 		6817EFF52EFE5B1D0084AE63 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6882DD8C2FEDC91A00FBFC3A /* WidgetKit.framework */,
+				6882DD8E2FEDC91A00FBFC3A /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -139,10 +200,12 @@
 				6817EF8D2EFE0B9E0084AE63 /* Sources */,
 				6817EF8E2EFE0B9E0084AE63 /* Frameworks */,
 				6817EF8F2EFE0B9E0084AE63 /* Resources */,
+				6882DDA12FEDC91B00FBFC3A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6882DD9B2FEDC91B00FBFC3A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6817EF932EFE0B9E0084AE63 /* Healthapp */,
@@ -206,6 +269,28 @@
 			productReference = 685123882F08478800DCFF4A /* HealthappUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		6882DD8A2FEDC91A00FBFC3A /* NetfuelWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6882DD9D2FEDC91B00FBFC3A /* Build configuration list for PBXNativeTarget "NetfuelWidgetExtension" */;
+			buildPhases = (
+				6882DD872FEDC91A00FBFC3A /* Sources */,
+				6882DD882FEDC91A00FBFC3A /* Frameworks */,
+				6882DD892FEDC91A00FBFC3A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6882DD902FEDC91A00FBFC3A /* NetfuelWidget */,
+			);
+			name = NetfuelWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = NetfuelWidgetExtension;
+			productReference = 6882DD8B2FEDC91A00FBFC3A /* NetfuelWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -213,8 +298,8 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					6817EF902EFE0B9E0084AE63 = {
 						CreatedOnToolsVersion = 26.2;
@@ -226,6 +311,9 @@
 					685123872F08478800DCFF4A = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 6817EF902EFE0B9E0084AE63;
+					};
+					6882DD8A2FEDC91A00FBFC3A = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -249,6 +337,7 @@
 				6817EF902EFE0B9E0084AE63 /* Healthapp */,
 				6851236E2F0845C200DCFF4A /* HealthappTests */,
 				685123872F08478800DCFF4A /* HealthappUITests */,
+				6882DD8A2FEDC91A00FBFC3A /* NetfuelWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -269,6 +358,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		685123862F08478800DCFF4A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6882DD892FEDC91A00FBFC3A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -299,6 +395,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6882DD872FEDC91A00FBFC3A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -311,6 +414,11 @@
 			isa = PBXTargetDependency;
 			target = 6817EF902EFE0B9E0084AE63 /* Healthapp */;
 			targetProxy = 6851238E2F08478800DCFF4A /* PBXContainerItemProxy */;
+		};
+		6882DD9B2FEDC91B00FBFC3A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6882DD8A2FEDC91A00FBFC3A /* NetfuelWidgetExtension */;
+			targetProxy = 6882DD9A2FEDC91B00FBFC3A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -376,6 +484,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -435,6 +544,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -447,6 +557,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Healthapp/Healthapp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
@@ -487,6 +598,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Healthapp/Healthapp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
@@ -602,6 +714,68 @@
 			};
 			name = Release;
 		};
+		6882DD9E2FEDC91B00FBFC3A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = NetfuelWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NetfuelWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NetfuelWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = rickyelder.Healthapp.NetfuelWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6882DD9F2FEDC91B00FBFC3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = NetfuelWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8M7HJUQVQ3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NetfuelWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NetfuelWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = rickyelder.Healthapp.NetfuelWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -637,6 +811,15 @@
 			buildConfigurations = (
 				685123912F08478800DCFF4A /* Debug */,
 				685123922F08478800DCFF4A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6882DD9D2FEDC91B00FBFC3A /* Build configuration list for PBXNativeTarget "NetfuelWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6882DD9E2FEDC91B00FBFC3A /* Debug */,
+				6882DD9F2FEDC91B00FBFC3A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
