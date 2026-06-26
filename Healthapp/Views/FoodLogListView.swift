@@ -24,11 +24,12 @@ struct FoodLogListView: View {
     }
 
     private var caloriesTarget: Int {
-        if let customTarget = settings.dailyCalorieTarget {
-            return customTarget
+        if settings.calorieMode == .stravaDynamic {
+            let bmr = Int(appState.currentUser?.bmr ?? appState.currentUser?.calculateBMR() ?? 0)
+            return settings.stravaCalorieTarget(bmr: bmr, exerciseCalories: viewModel.todayExerciseCalories)
         }
-        // Fall back to default TDEE
-        return 2000
+        let tdee = Int(appState.currentUser?.tdee ?? appState.currentUser?.calculateTDEE() ?? 0)
+        return settings.effectiveCalorieTarget(tdee: tdee)
     }
 
     private var proteinTarget: Double {
@@ -45,7 +46,7 @@ struct FoodLogListView: View {
         // Use user's custom target if set, otherwise use 30% of calorie target
         return settings.fatTargetGrams ?? (Double(caloriesTarget) * 0.30 / 9)
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -127,6 +128,7 @@ struct FoodLogListView: View {
                         // Quick-Add Buttons
                         QuickAddButtonsSection(
                             viewModel: viewModel,
+                            userId: appState.currentUser?.id,
                             onSuccess: {
                                 HapticFeedback.success()
                                 toastMessage = "Food logged successfully!"
@@ -240,17 +242,17 @@ struct FoodLogListView: View {
 struct DateSelectorView: View {
     @Binding var selectedDate: Date
     let onDateChange: () -> Void
-    
+
     private var isToday: Bool {
         Calendar.current.isDateInToday(selectedDate)
     }
-    
+
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMM d"
         return formatter.string(from: selectedDate)
     }
-    
+
     var body: some View {
         HStack {
             Button {
@@ -303,11 +305,11 @@ struct DateSelectorView: View {
 struct FoodLogsByMealView: View {
     @ObservedObject var viewModel: FoodViewModel
     let onDelete: (FoodLog) -> Void
-    
+
     private var logsByMeal: [MealType: [FoodLog]] {
         viewModel.foodLogsByMealType()
     }
-    
+
     var body: some View {
         VStack(spacing: 16) {
             ForEach(MealType.allCases, id: \.self) { mealType in
@@ -331,23 +333,23 @@ struct MealSection: View {
     let mealType: MealType
     let logs: [FoodLog]
     let onDelete: (FoodLog) -> Void
-    
+
     private var totalCalories: Int {
         logs.reduce(0) { $0 + Int($1.totalCalories) }
     }
-    
+
     private var totalProtein: Double {
         logs.reduce(0.0) { $0 + $1.totalProtein }
     }
-    
+
     private var totalCarbs: Double {
         logs.reduce(0.0) { $0 + $1.totalCarbs }
     }
-    
+
     private var totalFat: Double {
         logs.reduce(0.0) { $0 + $1.totalFat }
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
@@ -358,15 +360,15 @@ struct MealSection: View {
                     Text(mealType.displayName)
                         .font(.headline)
                 }
-                
+
                 Spacer()
-                
+
                 Text("\(totalCalories) cal")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.secondary)
             }
-            
+
             // Food logs
             VStack(spacing: 8) {
                 ForEach(logs) { log in
@@ -375,7 +377,7 @@ struct MealSection: View {
                     })
                 }
             }
-            
+
             // Meal totals
             HStack(spacing: 16) {
                 MacroBadge(icon: "p.circle.fill", value: String(format: "%.0f", totalProtein), unit: "g", color: .red)
@@ -395,7 +397,7 @@ struct MealSection: View {
 
 struct EmptyMealSection: View {
     let mealType: MealType
-    
+
     var body: some View {
         HStack {
             HStack(spacing: 8) {
@@ -405,9 +407,9 @@ struct EmptyMealSection: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
+
             Text("No foods logged")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -423,24 +425,24 @@ struct EmptyMealSection: View {
 struct FoodLogRow: View {
     let log: FoodLog
     let onDelete: () -> Void
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
                 Text(log.foodName)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                
+
                 if let brand = log.brandName {
                     Text(brand)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Text(log.servingDescription)
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                
+
                 InlineMacroView(
                     calories: Int(log.totalCalories),
                     protein: log.totalProtein,
@@ -448,9 +450,9 @@ struct FoodLogRow: View {
                     fat: log.totalFat
                 )
             }
-            
+
             Spacer()
-            
+
             Button {
                 onDelete()
             } label: {
@@ -469,12 +471,12 @@ struct FoodLogRow: View {
 struct QuickAddSection: View {
     let recentFoods: [FoodLog]
     let onSelect: (FoodLog) -> Void
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recently Logged")
                 .font(.headline)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(recentFoods.prefix(5)) { log in
@@ -532,15 +534,48 @@ struct QuickAddCard: View {
 
 struct QuickAddButtonsSection: View {
     @ObservedObject var viewModel: FoodViewModel
+    var userId: UUID? = nil
     var onSuccess: (() -> Void)? = nil
     var onError: ((String) -> Void)? = nil
 
-    @State private var settings = QuickAddSettings.load()
+    @State private var settings = QuickAddSettings()
     @State private var isLogging = false
+    @State private var showingSettings = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if !settings.buttons.isEmpty {
+            if settings.buttons.isEmpty {
+                Button {
+                    showingSettings = true
+                } label: {
+                    HStack {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(.blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Set Up Quick-Add Buttons")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            Text("Tap to configure shortcuts for your frequent meals")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                }
+                .sheet(isPresented: $showingSettings, onDismiss: {
+                    settings = QuickAddSettings.load(userId: userId)
+                }) {
+                    QuickAddSettingsView(userId: userId)
+                }
+            } else {
                 Text("Quick-Add")
                     .font(.headline)
 
@@ -570,9 +605,7 @@ struct QuickAddButtonsSection: View {
             }
         }
         .onAppear {
-            // Reload settings when view appears
-            print("🔄 Loading quick-add settings: \(QuickAddSettings.load().buttons.count) buttons")
-            settings = QuickAddSettings.load()
+            settings = QuickAddSettings.load(userId: userId)
         }
     }
 

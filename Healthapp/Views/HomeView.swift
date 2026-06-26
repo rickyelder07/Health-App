@@ -65,6 +65,7 @@ private struct HomeContentView: View {
     @State private var showErrorToast = false
     @State private var showSuccessToast = false
     @State private var toastMessage = ""
+    @State private var dismissedMealPrompts: Set<String> = []
 
     var body: some View {
         ScrollView {
@@ -84,6 +85,8 @@ private struct HomeContentView: View {
                     // Sync status banner (shows when offline or syncing)
                     SyncStatusBanner()
                         .animation(.spring(), value: viewModel.isLoading)
+
+                    mealBannerSection
 
                     // Welcome header
                     WelcomeHeader(
@@ -107,7 +110,9 @@ private struct HomeContentView: View {
                             netCalories: viewModel.netCalories,
                             isInSurplus: viewModel.isInSurplus,
                             caloriesConsumed: viewModel.caloriesConsumed,
-                            caloriesBurned: viewModel.caloriesBurned
+                            caloriesBurned: viewModel.caloriesBurned,
+                            calorieTarget: viewModel.calorieTarget,
+                            isStravaDynamic: viewModel.isStravaDynamicMode
                         )
                         .padding(.horizontal)
                         .cardAppearance(delay: 0.1)
@@ -122,7 +127,10 @@ private struct HomeContentView: View {
                         CaloriesProgressCard(
                             current: viewModel.caloriesConsumed,
                             target: viewModel.calorieTarget,
-                            burned: viewModel.caloriesBurned
+                            burned: viewModel.caloriesBurned,
+                            isStravaDynamic: viewModel.isStravaDynamicMode,
+                            bmr: viewModel.bmrCalories,
+                            exerciseCalories: viewModel.totalExerciseCalories
                         )
                         .padding(.horizontal)
                         .cardAppearance(delay: 0.2)
@@ -258,6 +266,87 @@ private struct HomeContentView: View {
         .accessibilityElement(children: .contain)
         .accessible(label: "Dashboard", hint: "View your daily nutrition and activity summary")
     }
+
+    @ViewBuilder private var mealBannerSection: some View {
+        if let meal = activeMealPrompt {
+            if !dismissedMealPrompts.contains(meal.rawValue) {
+                MealPromptBanner(
+                    meal: meal,
+                    onLog: { showingAddFood = true },
+                    onDismiss: {
+                        withAnimation(.spring(response: 0.4)) {
+                            _ = dismissedMealPrompts.insert(meal.rawValue)
+                        }
+                    }
+                )
+                .padding(.horizontal)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+
+    private var activeMealPrompt: MealType? {
+        guard !viewModel.isLoading else { return nil }
+        let prefs = NotificationManager.shared.preferences
+        let now = Date()
+        let cal = Calendar.current
+        let logged = Set(viewModel.foodEntries.compactMap { $0.mealType })
+        let meals: [(MealType, Bool, Date)] = [
+            (.breakfast, prefs.breakfastReminderEnabled, prefs.breakfastTime),
+            (.lunch,     prefs.lunchReminderEnabled,     prefs.lunchTime),
+            (.dinner,    prefs.dinnerReminderEnabled,    prefs.dinnerTime),
+        ]
+        for (meal, enabled, mealTime) in meals {
+            guard enabled, !logged.contains(meal) else { continue }
+            let h = cal.component(.hour, from: mealTime)
+            let m = cal.component(.minute, from: mealTime)
+            guard let fireDate = cal.date(bySettingHour: h, minute: m, second: 0, of: now),
+                  let windowEnd = cal.date(byAdding: .hour, value: 2, to: fireDate),
+                  now >= fireDate, now <= windowEnd else { continue }
+            return meal
+        }
+        return nil
+    }
+}
+
+// MARK: - Meal Prompt Banner
+
+private struct MealPromptBanner: View {
+    let meal: MealType
+    let onLog: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: meal.icon)
+                .font(.title3)
+                .foregroundColor(.white)
+                .frame(width: 38, height: 38)
+                .background(Color.red)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Have you logged \(meal.displayName.lowercased())?")
+                    .font(.subheadline).fontWeight(.semibold)
+                Text("Tap to log and stay on track 💪")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption).foregroundColor(.secondary)
+                    .padding(6)
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onLog)
+    }
 }
 
 // MARK: - Welcome Header
@@ -302,10 +391,11 @@ private struct NetCaloriesDashboardCard: View {
     let isInSurplus: Bool
     let caloriesConsumed: Int
     let caloriesBurned: Int
+    let calorieTarget: Int
+    let isStravaDynamic: Bool
 
     var body: some View {
         VStack(spacing: 16) {
-            // Net calories
             VStack(spacing: 4) {
                 Text("\(abs(netCalories))")
                     .font(.system(size: 48, weight: .bold))
@@ -316,7 +406,8 @@ private struct NetCaloriesDashboardCard: View {
                     .foregroundColor(.secondary)
             }
 
-            // Stats row
+            // In TDEE mode: Consumed vs Goal.
+            // In Strava Dynamic: Consumed vs Burned (burned = goal).
             HStack(spacing: 40) {
                 VStack(spacing: 4) {
                     Text("\(caloriesConsumed)")
@@ -327,14 +418,13 @@ private struct NetCaloriesDashboardCard: View {
                         .foregroundColor(.secondary)
                 }
 
-                Divider()
-                    .frame(height: 40)
+                Divider().frame(height: 40)
 
                 VStack(spacing: 4) {
-                    Text("\(caloriesBurned)")
+                    Text(isStravaDynamic ? "\(caloriesBurned)" : "\(calorieTarget)")
                         .font(.title3)
                         .fontWeight(.semibold)
-                    Text("Burned")
+                    Text(isStravaDynamic ? "Burned" : "Goal")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -363,6 +453,11 @@ private struct CaloriesProgressCard: View {
     let current: Int
     let target: Int
     let burned: Int
+    var isStravaDynamic: Bool = false
+    var bmr: Int = 0
+    var exerciseCalories: Int = 0
+
+    private var remaining: Int { max(0, target - current) }
 
     private var progress: Double {
         guard target > 0 else { return 0 }
@@ -371,9 +466,25 @@ private struct CaloriesProgressCard: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Calorie Progress")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("Calorie Progress")
+                    .font(.headline)
+                if isStravaDynamic {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.fill")
+                            .font(.caption2)
+                        Text("Strava Dynamic")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.orange)
+                    .cornerRadius(8)
+                }
+                Spacer()
+            }
 
             HStack(spacing: 20) {
                 // Circular progress
@@ -423,7 +534,7 @@ private struct CaloriesProgressCard: View {
                     HStack {
                         Image(systemName: "target")
                             .foregroundColor(.purple)
-                        Text("Target:")
+                        Text("Goal:")
                             .font(.subheadline)
                         Spacer()
                         Text("\(target) cal")
@@ -431,23 +542,75 @@ private struct CaloriesProgressCard: View {
                             .fontWeight(.semibold)
                     }
 
+                    // Only show Burned in Strava Dynamic mode — in TDEE mode it's
+                    // already accounted for in the goal, displaying it separately is misleading
+                    if isStravaDynamic {
+                        HStack {
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(.orange)
+                            Text("Burned:")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(burned) cal")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                    }
+
                     HStack {
-                        Image(systemName: "flame.fill")
-                            .foregroundColor(.orange)
-                        Text("Burned:")
+                        Image(systemName: "arrow.right.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Remaining:")
                             .font(.subheadline)
                         Spacer()
-                        Text("\(burned) cal")
+                        Text("\(remaining) cal")
                             .font(.subheadline)
                             .fontWeight(.semibold)
+                            .foregroundColor(remaining == 0 ? .red : .green)
                     }
                 }
+            }
+
+            // Strava Dynamic goal breakdown
+            if isStravaDynamic {
+                Divider()
+
+                HStack(spacing: 0) {
+                    goalBreakdownPill(label: "BMR", value: bmr, color: .blue)
+                    Text("+")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                    goalBreakdownPill(label: "Exercise", value: exerciseCalories, color: .orange)
+                    Text("=")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                    goalBreakdownPill(label: "Goal", value: target, color: .purple)
+                }
+                .frame(maxWidth: .infinity)
             }
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+
+    private func goalBreakdownPill(label: String, value: Int, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
     }
 }
 

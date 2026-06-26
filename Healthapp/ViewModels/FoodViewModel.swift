@@ -12,16 +12,16 @@ import Combine
 @MainActor
 class FoodViewModel: ObservableObject {
     // MARK: - Published Properties
-    
+
     // Custom Foods
     @Published var customFoods: [CustomFood] = []
     @Published var favoriteCustomFoods: [CustomFood] = []
-    
+
     // Custom Meals
     @Published var customMeals: [CustomMeal] = []
     @Published var favoriteCustomMeals: [CustomMeal] = []
     @Published var selectedMealFoods: [CustomMealFood] = []
-    
+
     // Food Logs
     @Published var todayFoodLogs: [FoodLog] = []
     @Published var recentFoods: [FoodLog] = []
@@ -31,27 +31,33 @@ class FoodViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var successMessage: String?
-    
+
     // Selection State
     @Published var selectedFood: CustomFood?
     @Published var selectedMeal: CustomMeal?
-    
+
+    // MARK: - Calorie Target Support
+
+    /// Today's exercise calories — used by FoodLogListView when in Strava Dynamic budget mode
+    @Published var todayExerciseCalories: Int = 0
+
     // MARK: - Private Properties
-    
+
     private let foodService = FoodService()
+    private let stravaService = StravaService()
     private var userId: UUID?
-    
+
     // MARK: - Initialization
-    
+
     func setUser(userId: UUID) {
         self.userId = userId
         Task {
             await loadInitialData()
         }
     }
-    
+
     // MARK: - Data Loading
-    
+
     /// Load all initial data
     func loadInitialData() async {
         guard let userId = userId else { return }
@@ -78,13 +84,15 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to load data: \(error.localizedDescription)"
         }
 
+        await refreshExerciseCalories()
+
         isLoading = false
     }
-    
+
     /// Refresh custom foods
     func refreshCustomFoods() async {
         guard let userId = userId else { return }
-        
+
         do {
             customFoods = try await foodService.fetchCustomFoods(userId: userId)
             favoriteCustomFoods = customFoods.filter { $0.isFavorite }
@@ -92,11 +100,11 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to refresh custom foods: \(error.localizedDescription)"
         }
     }
-    
+
     /// Refresh custom meals
     func refreshCustomMeals() async {
         guard let userId = userId else { return }
-        
+
         do {
             customMeals = try await foodService.fetchCustomMeals(userId: userId)
             favoriteCustomMeals = customMeals.filter { $0.isFavorite }
@@ -104,20 +112,33 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to refresh custom meals: \(error.localizedDescription)"
         }
     }
-    
+
     /// Refresh food logs for selected date
     func refreshTodayLogs() async {
         guard let userId = userId else { return }
 
         do {
             todayFoodLogs = try await foodService.fetchFoodLogs(userId: userId, date: selectedDate)
+            await refreshExerciseCalories()
         } catch {
             errorMessage = "Failed to refresh food logs: \(error.localizedDescription)"
         }
     }
-    
+
+    /// Fetch today's exercise calories so calorie target is correct in Strava Dynamic mode
+    func refreshExerciseCalories() async {
+        guard let userId = userId else { return }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: selectedDate)
+        let end = calendar.date(byAdding: .day, value: 1, to: start)!
+        let activities = (try? await stravaService.fetchActivitiesFromDatabase(
+            userId: userId, startDate: start, endDate: end
+        )) ?? []
+        todayExerciseCalories = activities.reduce(0) { $0 + Int($1.calories) }
+    }
+
     // MARK: - Custom Food Operations
-    
+
     /// Create custom food
     func createCustomFood(
         name: String,
@@ -134,10 +155,10 @@ class FoodViewModel: ObservableObject {
         isFavorite: Bool
     ) async -> Bool {
         guard let userId = userId else { return false }
-        
+
         isLoading = true
         errorMessage = nil
-        
+
         let request = CreateCustomFoodRequest(
             userId: userId,
             name: name,
@@ -153,7 +174,7 @@ class FoodViewModel: ObservableObject {
             servingUnit: servingUnit,
             isFavorite: isFavorite
         )
-        
+
         do {
             let newFood = try await foodService.createCustomFood(request: request)
             customFoods.insert(newFood, at: 0)
@@ -169,7 +190,7 @@ class FoodViewModel: ObservableObject {
             return false
         }
     }
-    
+
     /// Update custom food
     func updateCustomFood(
         foodId: UUID,
@@ -188,7 +209,7 @@ class FoodViewModel: ObservableObject {
     ) async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         let request = UpdateCustomFoodRequest(
             name: name,
             brand: brand,
@@ -203,7 +224,7 @@ class FoodViewModel: ObservableObject {
             servingUnit: servingUnit,
             isFavorite: isFavorite
         )
-        
+
         do {
             let updatedFood = try await foodService.updateCustomFood(foodId: foodId, request: request)
             if let index = customFoods.firstIndex(where: { $0.id == foodId }) {
@@ -219,7 +240,7 @@ class FoodViewModel: ObservableObject {
             return false
         }
     }
-    
+
     /// Delete custom food
     func deleteCustomFood(foodId: UUID) async {
         do {
@@ -231,7 +252,7 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to delete food: \(error.localizedDescription)"
         }
     }
-    
+
     /// Toggle custom food favorite
     func toggleCustomFoodFavorite(_ food: CustomFood) async {
         do {
@@ -241,11 +262,11 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to update favorite: \(error.localizedDescription)"
         }
     }
-    
+
     /// Create custom food from USDA food
     func createCustomFoodFromUSDA(_ usdaFood: USDAFood) async -> CustomFood? {
         guard let userId = userId else { return nil }
-        
+
         do {
             let customFood = try await foodService.createCustomFoodFromUSDA(usdaFood: usdaFood, userId: userId)
             customFoods.insert(customFood, at: 0)
@@ -256,23 +277,23 @@ class FoodViewModel: ObservableObject {
             return nil
         }
     }
-    
+
     // MARK: - Custom Meal Operations
-    
+
     /// Create custom meal
     func createCustomMeal(name: String, description: String?, isFavorite: Bool) async -> CustomMeal? {
         guard let userId = userId else { return nil }
-        
+
         isLoading = true
         errorMessage = nil
-        
+
         let request = CreateCustomMealRequest(
             userId: userId,
             name: name,
             description: description,
             isFavorite: isFavorite
         )
-        
+
         do {
             let newMeal = try await foodService.createCustomMeal(request: request)
             customMeals.insert(newMeal, at: 0)
@@ -288,14 +309,14 @@ class FoodViewModel: ObservableObject {
             return nil
         }
     }
-    
+
     /// Update custom meal
     func updateCustomMeal(mealId: UUID, name: String?, description: String?, isFavorite: Bool?) async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         let request = UpdateCustomMealRequest(name: name, description: description, isFavorite: isFavorite)
-        
+
         do {
             let updatedMeal = try await foodService.updateCustomMeal(mealId: mealId, request: request)
             if let index = customMeals.firstIndex(where: { $0.id == mealId }) {
@@ -311,7 +332,7 @@ class FoodViewModel: ObservableObject {
             return false
         }
     }
-    
+
     /// Delete custom meal
     func deleteCustomMeal(mealId: UUID) async {
         do {
@@ -323,7 +344,7 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to delete meal: \(error.localizedDescription)"
         }
     }
-    
+
     /// Toggle custom meal favorite
     func toggleCustomMealFavorite(_ meal: CustomMeal) async {
         do {
@@ -333,13 +354,13 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to update favorite: \(error.localizedDescription)"
         }
     }
-    
+
     /// Duplicate custom meal
     func duplicateCustomMeal(_ meal: CustomMeal, newName: String) async {
         guard let userId = userId else { return }
-        
+
         isLoading = true
-        
+
         do {
             let duplicatedMeal = try await foodService.duplicateCustomMeal(
                 mealId: meal.id,
@@ -351,10 +372,10 @@ class FoodViewModel: ObservableObject {
         } catch {
             errorMessage = "Failed to duplicate meal: \(error.localizedDescription)"
         }
-        
+
         isLoading = false
     }
-    
+
     /// Load foods for a specific meal
     func loadMealFoods(mealId: UUID) async {
         do {
@@ -363,9 +384,14 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to load meal foods: \(error.localizedDescription)"
         }
     }
-    
+
+    /// Add a food item to a meal
+    func addFoodToMeal(request: AddFoodToMealRequest) async throws -> CustomMealFood {
+        try await foodService.addFoodToMeal(request: request)
+    }
+
     // MARK: - Food Logging
-    
+
     /// Log food entry
     func logFood(
         foodName: String,
@@ -386,8 +412,12 @@ class FoodViewModel: ObservableObject {
         customFoodId: UUID? = nil,
         customMealId: UUID? = nil
     ) async -> Bool {
-        guard let userId = userId else { return false }
+        guard let userId = userId else {
+            print("❌ FoodViewModel.logFood() - userId is nil, aborting")
+            return false
+        }
 
+        print("🍽️ FoodViewModel.logFood() - logging '\(foodName)' for user \(userId)")
         isLoading = true
         errorMessage = nil
 
@@ -411,25 +441,27 @@ class FoodViewModel: ObservableObject {
             customMealId: customMealId,
             loggedAt: logDate
         )
-        
+
         do {
             let newLog = try await foodService.logFood(userId: userId, foodLog: request)
+            print("✅ FoodViewModel.logFood() - success, id: \(newLog.id)")
             todayFoodLogs.append(newLog)
             todayFoodLogs.sort { $0.loggedAt < $1.loggedAt }
             successMessage = "Food logged!"
             isLoading = false
             return true
         } catch {
+            print("❌ FoodViewModel.logFood() - error: \(error)")
             errorMessage = "Failed to log food: \(error.localizedDescription)"
             isLoading = false
             return false
         }
     }
-    
+
     /// Delete food log
     func deleteFoodLog(_ log: FoodLog) async {
         guard let userId = userId else { return }
-        
+
         do {
             try await foodService.deleteFoodLog(logId: log.id, userId: userId, loggedAt: log.loggedAt)
             todayFoodLogs.removeAll { $0.id == log.id }
@@ -438,36 +470,36 @@ class FoodViewModel: ObservableObject {
             errorMessage = "Failed to delete log: \(error.localizedDescription)"
         }
     }
-    
+
     // MARK: - Computed Properties
-    
+
     /// Total calories consumed today
     var todayTotalCalories: Int {
         todayFoodLogs.reduce(0) { $0 + Int($1.totalCalories) }
     }
-    
+
     /// Total protein consumed today
     var todayTotalProtein: Double {
         todayFoodLogs.reduce(0.0) { $0 + $1.totalProtein }
     }
-    
+
     /// Total carbs consumed today
     var todayTotalCarbs: Double {
         todayFoodLogs.reduce(0.0) { $0 + $1.totalCarbs }
     }
-    
+
     /// Total fat consumed today
     var todayTotalFat: Double {
         todayFoodLogs.reduce(0.0) { $0 + $1.totalFat }
     }
-    
+
     /// Group food logs by meal type
     func foodLogsByMealType() -> [MealType: [FoodLog]] {
         Dictionary(grouping: todayFoodLogs) { $0.mealType ?? .snack }
     }
-    
+
     // MARK: - Utility Methods
-    
+
     /// Clear success/error messages
     func clearMessages() {
         successMessage = nil

@@ -11,10 +11,13 @@ import Foundation
 struct UserSettings: Codable {
     // MARK: - Goals
 
-    /// Calorie goal source (BMR, TDEE, or Custom)
-    var calorieGoalSource: CalorieGoalSource = .tdee
+    /// Budget mode: TDEE-based (standard) or dynamic BMR + Strava exercise
+    var calorieMode: CalorieMode = .tdee
 
-    /// Daily calorie target (only used when calorieGoalSource is .custom)
+    /// Fitness goal mode
+    var fitnessGoal: FitnessGoal = .maintenance
+
+    /// Daily calorie target (only used when fitnessGoal is .manual)
     var dailyCalorieTarget: Int?
 
     /// Protein target in grams
@@ -131,25 +134,79 @@ struct UserSettings: Codable {
         }
     }
 
-    enum CalorieGoalSource: String, Codable, CaseIterable {
-        case bmr = "BMR"
-        case tdee = "TDEE"
-        case custom = "Custom"
+    enum CalorieMode: String, Codable {
+        case tdee
+        case stravaDynamic
+    }
+
+    enum FitnessGoal: String, Codable, CaseIterable {
+        case maintenance
+        case cutting
+        case bulking
+        case manual
 
         var displayName: String {
             switch self {
-            case .bmr: return "BMR (Basal Metabolic Rate)"
-            case .tdee: return "TDEE (Total Daily Energy)"
-            case .custom: return "Custom Target"
+            case .maintenance: return "Maintenance"
+            case .cutting: return "Cutting"
+            case .bulking: return "Bulking"
+            case .manual: return "Manual"
             }
         }
 
-        var description: String {
+        var subtitle: String {
             switch self {
-            case .bmr: return "Calories burned at rest - use for weight loss"
-            case .tdee: return "Total calories including activity - use to maintain weight"
-            case .custom: return "Set your own custom calorie target"
+            case .maintenance: return "Maintain current weight"
+            case .cutting: return "Lose ~1 lb/week"
+            case .bulking: return "Lean muscle gain"
+            case .manual: return "Set your own target"
             }
+        }
+
+        // Calorie offset from TDEE
+        var calorieOffset: Int {
+            switch self {
+            case .maintenance: return 0
+            case .cutting: return -500
+            case .bulking: return 300
+            case .manual: return 0
+            }
+        }
+
+        // Default macro split [protein%, carbs%, fat%]
+        var defaultMacros: (protein: Int, carbs: Int, fat: Int) {
+            switch self {
+            case .maintenance: return (30, 40, 30)
+            case .cutting: return (40, 30, 30)
+            case .bulking: return (30, 50, 20)
+            case .manual: return (30, 40, 30)
+            }
+        }
+    }
+}
+
+// MARK: - Calorie Target Calculation
+
+extension UserSettings {
+    /// Standard TDEE-based target. Used when calorieMode == .tdee.
+    func effectiveCalorieTarget(tdee: Int) -> Int {
+        switch fitnessGoal {
+        case .maintenance: return tdee
+        case .cutting:     return max(1200, tdee + fitnessGoal.calorieOffset)
+        case .bulking:     return tdee + fitnessGoal.calorieOffset
+        case .manual:      return dailyCalorieTarget ?? tdee
+        }
+    }
+
+    /// Dynamic Strava target: BMR + today's exercise calories, then goal offset applied.
+    /// Used when calorieMode == .stravaDynamic. Budget grows as activities sync.
+    func stravaCalorieTarget(bmr: Int, exerciseCalories: Int) -> Int {
+        let base = bmr + exerciseCalories
+        switch fitnessGoal {
+        case .maintenance: return base
+        case .cutting:     return max(1200, base - 500)
+        case .bulking:     return base + 300
+        case .manual:      return dailyCalorieTarget ?? base
         }
     }
 }

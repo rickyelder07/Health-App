@@ -10,15 +10,21 @@ import Supabase
 
 /// Service for managing daily calorie and macro summaries
 class DailySummaryService {
+    /// Shared singleton instance
+    static let shared = DailySummaryService()
+
     private let supabase = SupabaseClient.shared.client
-    
+
+    /// Private initializer to enforce singleton pattern
+    private init() {}
+
     // Custom date decoder that handles multiple formats
     private var decoder: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-            
+
             // Try date-only format first (YYYY-MM-DD) - common for DATE columns in PostgreSQL
             if dateString.count == 10 && dateString.contains("-") {
                 let formatter = DateFormatter()
@@ -28,20 +34,20 @@ class DailySummaryService {
                     return date
                 }
             }
-            
+
             // Try ISO8601 with fractional seconds
             let isoFormatter = ISO8601DateFormatter()
             isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             if let date = isoFormatter.date(from: dateString) {
                 return date
             }
-            
+
             // Try ISO8601 without fractional seconds
             isoFormatter.formatOptions = [.withInternetDateTime]
             if let date = isoFormatter.date(from: dateString) {
                 return date
             }
-            
+
             // Try standard date formatter with milliseconds
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
@@ -49,20 +55,20 @@ class DailySummaryService {
             if let date = formatter.date(from: dateString) {
                 return date
             }
-            
+
             // Try without milliseconds
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
             if let date = formatter.date(from: dateString) {
                 return date
             }
-            
+
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string: \(dateString)")
         }
         return decoder
     }
-    
+
     // MARK: - Fetch Operations
-    
+
     /// Fetch daily summary for a specific date
     /// - Parameters:
     ///   - userId: User ID
@@ -88,7 +94,7 @@ class DailySummaryService {
 
         return summaries.first
     }
-    
+
     /// Fetch daily summaries for a date range
     /// - Parameters:
     ///   - userId: User ID
@@ -99,7 +105,7 @@ class DailySummaryService {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: startDate)
         let end = calendar.startOfDay(for: endDate)
-        
+
         let response = try await supabase
             .from("daily_summaries")
             .select()
@@ -108,12 +114,12 @@ class DailySummaryService {
             .lte("date", value: end.ISO8601Format())
             .order("date", ascending: false)
             .execute()
-        
+
         return try decoder.decode([DailySummary].self, from: response.data)
     }
-    
+
     // MARK: - Calculate and Update
-    
+
     /// Calculate and update daily summary for a specific date
     /// This is the main method that recalculates everything
     /// - Parameters:
@@ -145,10 +151,10 @@ class DailySummaryService {
             print("🔍 Step 1a: COMPLETE - BMR: \(bmr ?? 0), TDEE: \(tdee ?? 0)")
         }
 
-        // 2. Calculate daily baseline burn from TDEE
+        // 2. Store actual BMR (resting burn only — exercise is stored separately)
         print("🔍 Step 2: Calculating daily baseline burn...")
-        let dailyBaselineBurn = calculateDailyBaselineBurn(tdee: tdee)
-        print("🔍 Step 2: COMPLETE - Daily burn: \(dailyBaselineBurn)")
+        let dailyBaselineBurn = bmr.map { Int($0) } ?? 0
+        print("🔍 Step 2: COMPLETE - BMR: \(dailyBaselineBurn)")
 
         // 3. Fetch and sum food logs for the day
         print("🔍 Step 3: Calculating food totals...")
@@ -162,7 +168,7 @@ class DailySummaryService {
 
         // 4.5. Calculate current calorie goal for historical tracking
         print("🔍 Step 4.5: Calculating calorie goal...")
-        let calorieGoal = calculateCurrentCalorieGoal(bmr: bmr, tdee: tdee)
+        let calorieGoal = calculateCurrentCalorieGoal(bmr: bmr, tdee: tdee, exerciseCalories: exerciseCalories)
         print("🔍 Step 4.5: COMPLETE - Goal: \(calorieGoal ?? 0)")
 
         // 5. Upsert daily summary
@@ -182,19 +188,19 @@ class DailySummaryService {
         print("✅ calculateAndUpdateSummary() - SUCCESS")
         return result
     }
-    
+
     /// Quick update for food consumption only (keeps existing burn values)
     /// Use this when you know only food logs changed
     func updateFoodConsumption(userId: UUID, date: Date) async throws {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
-        
+
         // Fetch food totals
         let foodTotals = try await calculateFoodTotals(userId: userId, date: date)
-        
+
         // Check if summary exists
         let existing = try await fetchSummary(userId: userId, date: date)
-        
+
         if let existing = existing {
             // Update existing summary (keep burn values)
             try await updateSummaryConsumption(
@@ -210,7 +216,7 @@ class DailySummaryService {
             try await calculateAndUpdateSummary(userId: userId, date: date)
         }
     }
-    
+
     /// Quick update for exercise calories only (keeps existing consumption values)
     /// Use this when you know only activities changed
     func updateExerciseCalories(userId: UUID, date: Date) async throws {
@@ -270,38 +276,16 @@ class DailySummaryService {
     }
 
     // MARK: - Calculation Helpers
-    
-    /// Calculate daily baseline burn from TDEE
-    /// Formula: TDEE / 7 (since TDEE is typically weekly)
-    /// OR just use daily TDEE if that's what's stored
-    private func calculateDailyBaselineBurn(tdee: Double?) -> Int {
-        guard let tdee = tdee else {
-            print("⚠️ No TDEE available, using default 2000 cal/day")
-            return 2000
-        }
 
-        // TDEE is already daily, so just return it as integer
-        return Int(tdee)
-    }
-
-    /// Calculate current calorie goal based on user settings
-    /// - Parameters:
-    ///   - bmr: User's BMR
-    ///   - tdee: User's TDEE
-    /// - Returns: Current calorie goal as Int, or nil if cannot be determined
-    private func calculateCurrentCalorieGoal(bmr: Double?, tdee: Double?) -> Int? {
+    private func calculateCurrentCalorieGoal(bmr: Double?, tdee: Double?, exerciseCalories: Int = 0) -> Int? {
         let settings = UserSettings.load()
-
-        switch settings.calorieGoalSource {
-        case .bmr:
+        if settings.calorieMode == .stravaDynamic {
             guard let bmr = bmr else { return nil }
-            return Int(bmr)
-        case .tdee:
-            guard let tdee = tdee else { return nil }
-            return Int(tdee)
-        case .custom:
-            return settings.dailyCalorieTarget
+            return settings.stravaCalorieTarget(bmr: Int(bmr), exerciseCalories: exerciseCalories)
         }
+        if settings.fitnessGoal == .manual { return settings.dailyCalorieTarget }
+        guard let tdee = tdee else { return nil }
+        return settings.effectiveCalorieTarget(tdee: Int(tdee))
     }
 
     /// Calculate food totals for a specific date
@@ -332,7 +316,7 @@ class DailySummaryService {
 
         return (totalCalories, totalProtein, totalCarbs, totalFat)
     }
-    
+
     /// Calculate exercise calories for a specific date
     private func calculateExerciseCalories(userId: UUID, date: Date) async throws -> Int {
         print("  🏃 calculateExerciseCalories() - START")
@@ -360,34 +344,34 @@ class DailySummaryService {
 
         return totalExerciseCalories
     }
-    
+
     /// Fetch user profile
     private func fetchUserProfile(userId: UUID) async throws -> User {
         print("🔍 Fetching user profile for ID: \(userId)")
-        
+
         let response = try await supabase
             .from("users")
             .select()
             .eq("id", value: userId.uuidString)
             .execute()
-        
+
         print("📥 User query response data: \(String(data: response.data, encoding: .utf8) ?? "nil")")
-        
+
         let users = try decoder.decode([User].self, from: response.data)
-        
+
         print("✅ Decoded \(users.count) user(s)")
-        
+
         guard let user = users.first else {
             print("❌ No user found with ID: \(userId)")
             throw DailySummaryError.userProfileNotFound
         }
-        
+
         print("✅ User profile found: BMR=\(user.bmr ?? 0), TDEE=\(user.tdee ?? 0)")
         return user
     }
-    
+
     // MARK: - Database Operations
-    
+
     /// Upsert daily summary (insert or update)
     private func upsertSummary(
         userId: UUID,
@@ -414,7 +398,7 @@ class DailySummaryService {
                 caloriesBurnedExercise: caloriesBurnedExercise,
                 calorieGoal: calorieGoal
             )
-            
+
             let response = try await supabase
                 .from("daily_summaries")
                 .update(updateRequest)
@@ -422,13 +406,13 @@ class DailySummaryService {
                 .eq("date", value: date.ISO8601Format())
                 .select()
                 .execute()
-            
+
             let summaries = try decoder.decode([DailySummary].self, from: response.data)
-            
+
             guard let updated = summaries.first else {
                 throw DailySummaryError.updateFailed
             }
-            
+
             return updated
         } else {
             // Insert new
@@ -443,23 +427,23 @@ class DailySummaryService {
                 caloriesBurnedExercise: caloriesBurnedExercise,
                 calorieGoal: calorieGoal
             )
-            
+
             let response = try await supabase
                 .from("daily_summaries")
                 .insert(newSummary)
                 .select()
                 .execute()
-            
+
             let summaries = try decoder.decode([DailySummary].self, from: response.data)
-            
+
             guard let created = summaries.first else {
                 throw DailySummaryError.createFailed
             }
-            
+
             return created
         }
     }
-    
+
     /// Update only consumption values
     private func updateSummaryConsumption(
         userId: UUID,
@@ -475,7 +459,7 @@ class DailySummaryService {
             carbsConsumed: carbsConsumed,
             fatConsumed: fatConsumed
         )
-        
+
         _ = try await supabase
             .from("daily_summaries")
             .update(updateRequest)
@@ -483,7 +467,7 @@ class DailySummaryService {
             .eq("date", value: date.ISO8601Format())
             .execute()
     }
-    
+
     /// Update only exercise calories
     private func updateSummaryExercise(
         userId: UUID,
@@ -575,7 +559,7 @@ struct DailySummaryConsumptionUpdateRequest: Codable {
     let proteinConsumed: Double
     let carbsConsumed: Double
     let fatConsumed: Double
-    
+
     enum CodingKeys: String, CodingKey {
         case caloriesConsumed = "calories_consumed"
         case proteinConsumed = "protein_consumed"
@@ -608,7 +592,7 @@ enum DailySummaryError: LocalizedError {
     case createFailed
     case userProfileNotFound
     case invalidDate
-    
+
     var errorDescription: String? {
         switch self {
         case .updateFailed:

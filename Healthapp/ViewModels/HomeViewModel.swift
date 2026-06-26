@@ -18,16 +18,18 @@ class HomeViewModel: ObservableObject {
     @Published var activities: [Activity] = []
     @Published var recentPhoto: ProgressPhoto?
     @Published var currentWeight: Double?
+    @Published var user: User?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
     // MARK: - Private Properties
 
     private let userId: UUID
-    private let summaryService = DailySummaryService()
+    private let summaryService = DailySummaryService.shared
     private let foodService = FoodService()
     private let stravaService = StravaService()
     private let photoService = PhotoService()
+    private let profileService = ProfileService.shared
 
     // MARK: - Initialization
 
@@ -40,35 +42,33 @@ class HomeViewModel: ObservableObject {
         print("📍 HomeViewModel.loadTodaySummary() - START")
         isLoading = true
         errorMessage = nil
+        defer { isLoading = false }
 
         do {
+            async let fetchedUser = profileService.fetchProfile(userId: userId)
+            async let fetchedSummary = summaryService.fetchSummary(userId: userId, date: Date())
+
+            user = try? await fetchedUser
+
             print("📍 Step 1: Fetching summary for user \(userId)")
-            // Load or create today's summary
-            dailySummary = try await summaryService.fetchSummary(userId: userId, date: Date())
+            dailySummary = try await fetchedSummary
             print("📍 Step 1: COMPLETE - Summary: \(dailySummary != nil ? "FOUND" : "NIL")")
 
-            // If no summary exists, calculate one
             if dailySummary == nil {
                 print("📍 Step 2: No summary found, calculating new one...")
-                dailySummary = try await summaryService.calculateAndUpdateSummary(
-                    userId: userId,
-                    date: Date()
-                )
+                dailySummary = try await summaryService.calculateAndUpdateSummary(userId: userId, date: Date())
                 print("📍 Step 2: COMPLETE - Calculated summary")
             } else {
                 print("📍 Step 2: SKIPPED - Summary already exists")
             }
 
-            // Extract weight from summary
             currentWeight = dailySummary?.weight
 
             print("📍 Step 3: Fetching food logs...")
-            // Load today's food logs
             foodEntries = try await foodService.fetchFoodLogs(userId: userId, date: Date())
             print("📍 Step 3: COMPLETE - Found \(foodEntries.count) food entries")
 
             print("📍 Step 4: Fetching activities...")
-            // Load today's activities
             let calendar = Calendar.current
             let startOfDay = calendar.startOfDay(for: Date())
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
@@ -81,19 +81,29 @@ class HomeViewModel: ObservableObject {
             print("📍 Step 4: COMPLETE - Found \(activities.count) activities")
 
             print("📍 Step 5: Fetching recent photo...")
-            // Load most recent progress photo
             let photos = try await photoService.fetchPhotos(userId: userId)
             recentPhoto = photos.first
             print("📍 Step 5: COMPLETE - Recent photo: \(recentPhoto != nil ? "FOUND" : "NONE")")
 
+            WidgetDataManager.shared.write(
+                caloriesConsumed: caloriesConsumed, calorieGoal: calorieTarget,
+                proteinConsumed: proteinConsumed,   proteinGoal: proteinTarget,
+                carbsConsumed: carbsConsumed,       carbsGoal: carbsTarget,
+                fatConsumed: fatConsumed,           fatGoal: fatTarget
+            )
+
             print("✅ HomeViewModel.loadTodaySummary() - SUCCESS")
+        } catch is CancellationError {
+            // ponytail: .task cancels in-flight work when view disappears — not an error
+            print("📍 HomeViewModel.loadTodaySummary() - CANCELLED")
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            // URLSession throws this (NSURLErrorDomain -999) when the Swift task is cancelled
+            print("📍 HomeViewModel.loadTodaySummary() - CANCELLED (URLSession)")
         } catch {
             errorMessage = "Failed to load data: \(error.localizedDescription)"
             print("❌ Error loading today's summary: \(error)")
-            print("❌ Error details: \(String(describing: error))")
         }
 
-        isLoading = false
         print("📍 HomeViewModel.loadTodaySummary() - END (isLoading=false)")
     }
 
@@ -136,9 +146,14 @@ class HomeViewModel: ObservableObject {
         return bmr + exercise
     }
 
-    /// Net calories (consumed - burned)
+    /// Net calories relative to the active budget mode:
+    /// - TDEE mode:  consumed - calorieTarget (how far above/below the goal)
+    /// - Strava Dynamic: consumed - caloriesBurned (ate back what you burned)
     var netCalories: Int {
-        caloriesConsumed - caloriesBurned
+        if UserSettings.load().calorieMode == .stravaDynamic {
+            return caloriesConsumed - caloriesBurned
+        }
+        return caloriesConsumed - calorieTarget
     }
 
     /// Is user in calorie surplus?
@@ -146,25 +161,23 @@ class HomeViewModel: ObservableObject {
         netCalories > 0
     }
 
-    /// Calorie target - uses historical goal from summary if available
-    var calorieTarget: Int {
-        // IMPORTANT: Use historical goal from summary for accurate comparisons
-        // Even if user changes their goal later, we show what the goal was on this day
-        if let historicalGoal = dailySummary?.calorieGoal {
-            return historicalGoal
-        }
+    var isStravaDynamicMode: Bool {
+        UserSettings.load().calorieMode == .stravaDynamic
+    }
 
-        // Fallback: Calculate current goal (for new summaries that don't have goal saved yet)
+    var bmrCalories: Int {
+        dailySummary?.caloriesBurnedBmr ?? Int(user?.calculateBMR() ?? 0)
+    }
+
+    /// Calorie target derived from the user's fitness goal and budget mode
+    var calorieTarget: Int {
         let settings = UserSettings.load()
-        switch settings.calorieGoalSource {
-        case .bmr:
-            // Would need user's BMR - fall through to TDEE for now
-            fallthrough
-        case .tdee:
-            return dailySummary?.totalCaloriesBurned ?? dailySummary?.calculateTotalCaloriesBurned() ?? 2000
-        case .custom:
-            return settings.dailyCalorieTarget ?? 2000
+        if settings.calorieMode == .stravaDynamic {
+            let bmr = dailySummary?.caloriesBurnedBmr ?? Int(user?.calculateBMR() ?? 0)
+            return settings.stravaCalorieTarget(bmr: bmr, exerciseCalories: totalExerciseCalories)
         }
+        let tdee = Int(user?.tdee ?? user?.calculateTDEE() ?? 0)
+        return settings.effectiveCalorieTarget(tdee: tdee)
     }
 
     /// Macro targets from user settings
